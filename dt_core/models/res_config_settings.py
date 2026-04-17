@@ -22,7 +22,7 @@ class ResConfigSettings(models.TransientModel):
         default=True,
         help="Bật để sau này gom file theo date hoặc record code, không tách quá nhiều tầng theo user.",
     )
-    dt_storage_future_sync_note = fields.Text(
+    dt_storage_future_sync_note = fields.Char(
         string="Ghi chú vận hành",
         config_parameter="dt_core.storage_future_sync_note",
         help="Ghi chú nội bộ cho kế hoạch đồng bộ cloud hoặc ổ cứng riêng trong giai đoạn sau.",
