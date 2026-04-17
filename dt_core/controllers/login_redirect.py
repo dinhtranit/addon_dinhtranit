@@ -1,0 +1,25 @@
+# -*- coding: utf-8 -*-
+from odoo import http
+from odoo.addons.portal.controllers.web import is_user_internal, Home as PortalHome
+from odoo.http import request
+
+
+class Home(PortalHome):
+
+    @http.route()
+    def index(self, *args, **kw):
+        if request.session.uid and not is_user_internal(request.session.uid):
+            return request.redirect_query('/my/apps', query=request.params)
+        return super().index(*args, **kw)
+
+    def _login_redirect(self, uid, redirect=None):
+        if not redirect:
+            redirect = '/my/apps'
+        return super()._login_redirect(uid, redirect=redirect)
+
+    @http.route()
+    def web_client(self, s_action=None, **kw):
+        if request.session.uid and not is_user_internal(request.session.uid):
+            return request.redirect_query('/my/apps', query=request.params)
+        return super().web_client(s_action, **kw)
+
