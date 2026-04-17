@@ -2,6 +2,7 @@
 <odoo>
     <template id="portal_shell" name="DT Portal Shell">
         <t t-call="website.layout">
+            <t t-set="no_footer" t-value="1"/>
             <div class="dt-shell" t-att-data-page="page_name or 'apps'">
                 <header class="dt-topbar">
                     <a t-if="back_url" t-att-href="back_url" class="dt-back-btn" aria-label="Quay lại">←</a>

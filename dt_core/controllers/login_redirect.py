@@ -23,3 +23,10 @@ class Home(PortalHome):
             return request.redirect_query('/my/apps', query=request.params)
         return super().web_client(s_action, **kw)
 
+class DtHomeController(http.Controller):
+
+    @http.route('/', type='http', auth='public', website=True)
+    def dt_home_redirect(self, **kw):
+        if request.env.user and not request.env.user._is_public():
+            return request.redirect('/my/apps')
+        return request.redirect('/web/login')
