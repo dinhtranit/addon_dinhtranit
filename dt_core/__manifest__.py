@@ -12,6 +12,7 @@
         "data/dt_core_data.xml",
         "views/dt_core_backend_views.xml",
         "templates/dt_core_templates.xml",
+        "templates/hidden_menu.xml",
     ],
     "assets": {
         "web.assets_frontend": [

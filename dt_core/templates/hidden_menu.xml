@@ -1,0 +1,7 @@
+<odoo>
+  <template id="hide_top_menu_for_portal" inherit_id="portal.frontend_layout">
+    <xpath expr="//header" position="attributes">
+      <attribute name="t-if">request.env.user.has_group('base.group_user')</attribute>
+    </xpath>
+  </template>
+</odoo>
