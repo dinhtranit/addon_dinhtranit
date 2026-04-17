@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_dt_expense_category_user,dt.expense.category user,model_dt_expense_category,base.group_user,1,1,1,1
+access_dt_expense_category_portal,dt.expense.category portal,model_dt_expense_category,base.group_portal,1,1,1,1
+access_dt_expense_entry_user,dt.expense.entry user,model_dt_expense_entry,base.group_user,1,1,1,1
+access_dt_expense_entry_portal,dt.expense.entry portal,model_dt_expense_entry,base.group_portal,1,1,1,1

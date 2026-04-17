@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dt_app_tree" model="ir.ui.view">
+        <field name="name">dt.app.tree</field>
+        <field name="model">dt.app</field>
+        <field name="arch" type="xml">
+            <list string="DT Apps" create="false">
+                <field name="sequence" widget="handle"/>
+                <field name="icon"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="route"/>
+                <field name="is_active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dt_app_form" model="ir.ui.view">
+        <field name="name">dt.app.form</field>
+        <field name="model">dt.app</field>
+        <field name="arch" type="xml">
+            <form string="DT App">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="icon"/>
+                            <field name="route"/>
+                        </group>
+                        <group>
+                            <field name="sequence"/>
+                            <field name="badge"/>
+                            <field name="is_active"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="description"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dt_app_registry" model="ir.actions.act_window">
+        <field name="name">DT App Registry</field>
+        <field name="res_model">dt.app</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_dt_root" name="DT Suite" sequence="60"/>
+    <menuitem id="menu_dt_settings" name="Cấu hình chung" parent="menu_dt_root" action="action_dt_app_registry" sequence="10"/>
+
+    <record id="view_res_config_settings_dt_core" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.dt.core</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="DT Core" name="dt_core_settings">
+                    <block title="Kế hoạch kho file ngoài" name="dt_storage_settings_block">
+                        <setting string="Đường dẫn gốc dự kiến" help="Để sẵn cho giai đoạn đồng bộ ổ cứng riêng hoặc cloud sau này.">
+                            <field name="dt_storage_root_path"/>
+                        </setting>
+                        <setting string="Mẫu thư mục dự kiến" help="Ví dụ đơn giản cho gia đình: family/{module}/{date}/{record_code}">
+                            <field name="dt_storage_folder_pattern"/>
+                        </setting>
+                        <setting string="Ưu tiên cây thư mục phẳng">
+                            <field name="dt_storage_flat_family_mode"/>
+                        </setting>
+                        <setting string="Ghi chú vận hành">
+                            <field name="dt_storage_future_sync_note"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

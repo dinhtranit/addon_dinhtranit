@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="seq_dt_memoire_diary" model="ir.sequence"><field name="name">DT Memoire Diary</field><field name="code">dt.memoire.diary</field><field name="prefix">DTMEM-%(year)s%(month)s%(day)s-</field><field name="padding">4</field></record>
+    <record id="seq_dt_memoire_album" model="ir.sequence"><field name="name">DT Memoire Album</field><field name="code">dt.memoire.album</field><field name="prefix">DTALB-</field><field name="padding">4</field></record>
+    <record id="dt_app_memoire" model="dt.app"><field name="name">Memories</field><field name="code">memoire</field><field name="route">/my/apps/memories</field><field name="icon">🕒</field><field name="description">Timeline kỷ niệm, tạo nhanh nhiều ảnh và video.</field><field name="sequence">20</field><field name="is_active">True</field></record>
+    <record id="dt_tag_family" model="dt.memoire.tag"><field name="name">Gia đình</field><field name="color">2</field></record>
+    <record id="dt_tag_school" model="dt.memoire.tag"><field name="name">Trường học</field><field name="color">4</field></record>
+    <record id="dt_tag_travel" model="dt.memoire.tag"><field name="name">Du lịch</field><field name="color">6</field></record>
+    <record id="dt_tag_kids" model="dt.memoire.tag"><field name="name">Con cái</field><field name="color">8</field></record>
+</odoo>
