@@ -4,7 +4,7 @@
         <field name="name">dt.app.tree</field>
         <field name="model">dt.app</field>
         <field name="arch" type="xml">
-            <list string="DT Apps" create="false">
+            <list string="Family Apps" create="false">
                 <field name="sequence" widget="handle"/>
                 <field name="icon"/>
                 <field name="name"/>
@@ -19,7 +19,7 @@
         <field name="name">dt.app.form</field>
         <field name="model">dt.app</field>
         <field name="arch" type="xml">
-            <form string="DT App">
+            <form string="Family App">
                 <sheet>
                     <group>
                         <group>
@@ -43,12 +43,12 @@
     </record>
 
     <record id="action_dt_app_registry" model="ir.actions.act_window">
-        <field name="name">DT App Registry</field>
+        <field name="name">Family App Registry</field>
         <field name="res_model">dt.app</field>
         <field name="view_mode">list,form</field>
     </record>
 
-    <menuitem id="menu_dt_root" name="DT Suite" sequence="60"/>
+    <menuitem id="menu_dt_root" name="Family Suite" sequence="60" web_icon="dt_core,static/description/icon.png"/>
     <menuitem id="menu_dt_settings" name="Cấu hình chung" parent="menu_dt_root" action="action_dt_app_registry" sequence="10"/>
 
     <record id="view_res_config_settings_dt_core" model="ir.ui.view">
@@ -57,7 +57,7 @@
         <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
-                <app string="DT Core" name="dt_core_settings">
+                <app string="Family Core" name="dt_core_settings">
                     <block title="Kế hoạch kho file ngoài" name="dt_storage_settings_block">
                         <setting string="Đường dẫn gốc dự kiến" help="Để sẵn cho giai đoạn đồng bộ ổ cứng riêng hoặc cloud sau này.">
                             <field name="dt_storage_root_path"/>

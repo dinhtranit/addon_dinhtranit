@@ -2,9 +2,9 @@
 from odoo import api, fields, models
 
 
-class DTExpenseCategory(models.Model):
+class FamilyExpenseCategory(models.Model):
     _name = "dt.expense.category"
-    _description = "DT Expense Category"
+    _description = "Family Expense Category"
     _order = "sequence, id"
 
     name = fields.Char(required=True)
@@ -28,5 +28,5 @@ class DTExpenseCategory(models.Model):
         seq = self.env["ir.sequence"].sudo()
         for vals in vals_list:
             if vals.get("code", "New") == "New":
-                vals["code"] = seq.next_by_code("dt.expense.category") or "DTCAT"
+                vals["code"] = seq.next_by_code("dt.expense.category") or "FamilyCAT"
         return super().create(vals_list)

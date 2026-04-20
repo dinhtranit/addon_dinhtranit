@@ -6,7 +6,7 @@ class ResConfigSettings(models.TransientModel):
     _inherit = "res.config.settings"
 
     dt_storage_root_path = fields.Char(
-        string="DT storage root",
+        string="Family storage root",
         config_parameter="dt_core.storage_root_path",
         help="Đường dẫn gốc dự kiến cho kho file ngoài ở giai đoạn sau.",
     )

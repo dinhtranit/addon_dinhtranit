@@ -3,7 +3,7 @@ from odoo import http
 from odoo.http import request
 
 
-class DTPortalCore(http.Controller):
+class FamilyPortalCore(http.Controller):
 
     def _base_values(self, **extra):
         apps = request.env["dt.app"].sudo().search([("is_active", "=", True)], order="sequence, id")
@@ -11,7 +11,7 @@ class DTPortalCore(http.Controller):
             "app_cards": apps,
             "current_user": request.env.user,
             "page_name": extra.get("page_name", "apps"),
-            "page_title": extra.get("page_title", "DT Apps"),
+            "page_title": extra.get("page_title", "Family Apps"),
             "page_subtitle": extra.get("page_subtitle", ""),
             "back_url": extra.get("back_url", ""),
         }
@@ -22,7 +22,7 @@ class DTPortalCore(http.Controller):
     def apps_home(self, **kw):
         return request.render("dt_core.portal_apps_home", self._base_values(
             page_name="apps",
-            page_title="DT Apps",
+            page_title="Family Apps",
             page_subtitle="Chọn app để vào đúng chức năng trên điện thoại.",
         ))
 

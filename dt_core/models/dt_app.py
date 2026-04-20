@@ -2,9 +2,9 @@
 from odoo import fields, models
 
 
-class DTApp(models.Model):
+class FamilyApp(models.Model):
     _name = "dt.app"
-    _description = "DT Portal App"
+    _description = "Family Portal App"
     _order = "sequence, id"
 
     name = fields.Char(required=True)

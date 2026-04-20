@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "DT Core",
+    "name": "Family App Core",
     "version": "19.0.1.0.0",
-    "summary": "Khung app chung cho bộ module DT",
+    "summary": "Khung app chung cho bộ module Family",
     "category": "Website",
-    "author": "DT",
+    "author": "Dinh Tran IT",
     "license": "LGPL-3",
     "depends": ["base", "mail", "portal", "website", "web"],
     "data": [

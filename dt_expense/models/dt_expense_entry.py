@@ -5,9 +5,9 @@ from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
 
-class DTExpenseEntry(models.Model):
+class FamilyExpenseEntry(models.Model):
     _name = "dt.expense.entry"
-    _description = "DT Expense Entry"
+    _description = "Family Expense Entry"
     _order = "expense_date desc, id desc"
     _rec_name = "display_name"
 
@@ -33,7 +33,7 @@ class DTExpenseEntry(models.Model):
         seq = self.env["ir.sequence"].sudo()
         for vals in vals_list:
             if vals.get("code", "New") == "New":
-                vals["code"] = seq.next_by_code("dt.expense.entry") or "DTEXP"
+                vals["code"] = seq.next_by_code("dt.expense.entry") or "FamilyEXP"
         return super().create(vals_list)
 
     @api.depends("name", "category_id", "expense_date")

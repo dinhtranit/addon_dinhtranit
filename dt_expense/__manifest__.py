@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "DT Expense",
+    "name": "Family Expense",
     "version": "19.0.1.0.0",
-    "summary": "Quản lý chi tiêu hằng ngày mobile-first",
+    "summary": "Quản lý chi tiêu hằng ngày Family",
     "category": "Website",
-    "author": "DT",
+    "author": "Dinh Tran IT",
     "license": "LGPL-3",
     "depends": ["dt_core", "portal", "website", "web"],
     "data": [

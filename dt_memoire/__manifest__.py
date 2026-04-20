@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "DT Memoire",
+    "name": "Family Memoire",
     "version": "19.0.1.0.0",
-    "summary": "Timeline kỷ niệm mobile-first cho gia đình",
+    "summary": "Timeline kỷ niệm gia đình",
     "category": "Website",
-    "author": "DT",
+    "author": "Dinh Tran IT",
     "license": "LGPL-3",
     "depends": ["dt_core", "mail", "portal", "website", "web"],
     "data": [

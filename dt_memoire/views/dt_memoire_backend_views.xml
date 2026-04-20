@@ -1,15 +1,113 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_dt_memoire_diary_tree" model="ir.ui.view"><field name="name">dt.memoire.diary.tree</field><field name="model">dt.memoire.diary</field><field name="arch" type="xml"><list string="DT Memories"><field name="memory_date"/><field name="title"/><field name="user_id"/><field name="category"/><field name="privacy"/><field name="media_count"/><field name="view_count"/><field name="is_pinned"/></list></field></record>
-    <record id="view_dt_memoire_diary_form" model="ir.ui.view"><field name="name">dt.memoire.diary.form</field><field name="model">dt.memoire.diary</field><field name="arch" type="xml"><form string="DT Memory"><sheet><group><group><field name="title"/><field name="code" readonly="1"/><field name="memory_date"/><field name="location"/><field name="user_id"/></group><group><field name="category"/><field name="emotion"/><field name="privacy"/><field name="album_id"/><field name="tag_ids" widget="many2many_tags"/></group></group><group><field name="story"/></group><group><field name="shared_partner_ids" widget="many2many_tags"/></group></sheet></form></field></record>
-    <record id="action_dt_memoire_diary" model="ir.actions.act_window"><field name="name">DT Memories</field><field name="res_model">dt.memoire.diary</field><field name="view_mode">list,form</field></record>
-    <record id="view_dt_memoire_album_tree" model="ir.ui.view"><field name="name">dt.memoire.album.tree</field><field name="model">dt.memoire.album</field><field name="arch" type="xml"><list string="DT Albums"><field name="sequence" widget="handle"/><field name="name"/><field name="user_id"/><field name="diary_count"/><field name="active"/></list></field></record>
-    <record id="view_dt_memoire_album_form" model="ir.ui.view"><field name="name">dt.memoire.album.form</field><field name="model">dt.memoire.album</field><field name="arch" type="xml"><form string="DT Album"><sheet><group><field name="name"/><field name="code" readonly="1"/><field name="user_id"/><field name="sequence"/><field name="active"/></group><group><field name="description"/></group></sheet></form></field></record>
-    <record id="action_dt_memoire_album" model="ir.actions.act_window"><field name="name">DT Albums</field><field name="res_model">dt.memoire.album</field><field name="view_mode">list,form</field></record>
-    <record id="view_dt_memoire_tag_tree" model="ir.ui.view"><field name="name">dt.memoire.tag.tree</field><field name="model">dt.memoire.tag</field><field name="arch" type="xml"><list string="DT Tags"><field name="name"/><field name="color"/></list></field></record>
-    <record id="action_dt_memoire_tag" model="ir.actions.act_window"><field name="name">DT Tags</field><field name="res_model">dt.memoire.tag</field><field name="view_mode">list,form</field></record>
-    <menuitem id="menu_dt_memoire_root" name="DT Memories" parent="dt_core.menu_dt_root" sequence="20"/>
-    <menuitem id="menu_dt_memoire_diary" name="Kỷ niệm" parent="menu_dt_memoire_root" action="action_dt_memoire_diary" sequence="10"/>
-    <menuitem id="menu_dt_memoire_album" name="Album" parent="menu_dt_memoire_root" action="action_dt_memoire_album" sequence="20"/>
-    <menuitem id="menu_dt_memoire_tag" name="Tag" parent="menu_dt_memoire_root" action="action_dt_memoire_tag" sequence="30"/>
+	<record id="view_dt_memoire_diary_tree" model="ir.ui.view">
+		<field name="name">dt.memoire.diary.tree</field>
+		<field name="model">dt.memoire.diary</field>
+		<field name="arch" type="xml">
+			<list string="Family Memories">
+				<field name="memory_date"/>
+				<field name="title"/>
+				<field name="user_id"/>
+				<field name="category"/>
+				<field name="privacy"/>
+				<field name="media_count"/>
+				<field name="view_count"/>
+				<field name="is_pinned"/>
+			</list>
+		</field>
+	</record>
+	<record id="view_dt_memoire_diary_form" model="ir.ui.view">
+		<field name="name">dt.memoire.diary.form</field>
+		<field name="model">dt.memoire.diary</field>
+		<field name="arch" type="xml">
+			<form string="Family Memory">
+				<sheet>
+					<group>
+						<group>
+							<field name="title"/>
+							<field name="code" readonly="1"/>
+							<field name="memory_date"/>
+							<field name="location"/>
+							<field name="user_id"/>
+						</group>
+						<group>
+							<field name="category"/>
+							<field name="emotion"/>
+							<field name="privacy"/>
+							<field name="album_id"/>
+							<field name="tag_ids" widget="many2many_tags"/>
+						</group>
+					</group>
+					<group>
+						<field name="story"/>
+					</group>
+					<group>
+						<field name="shared_partner_ids" widget="many2many_tags"/>
+					</group>
+				</sheet>
+			</form>
+		</field>
+	</record>
+	<record id="action_dt_memoire_diary" model="ir.actions.act_window">
+		<field name="name">Family Memories</field>
+		<field name="res_model">dt.memoire.diary</field>
+		<field name="view_mode">list,form</field>
+	</record>
+	<record id="view_dt_memoire_album_tree" model="ir.ui.view">
+		<field name="name">dt.memoire.album.tree</field>
+		<field name="model">dt.memoire.album</field>
+		<field name="arch" type="xml">
+			<list string="Family Albums">
+				<field name="sequence" widget="handle"/>
+				<field name="name"/>
+				<field name="user_id"/>
+				<field name="diary_count"/>
+				<field name="active"/>
+			</list>
+		</field>
+	</record>
+	<record id="view_dt_memoire_album_form" model="ir.ui.view">
+		<field name="name">dt.memoire.album.form</field>
+		<field name="model">dt.memoire.album</field>
+		<field name="arch" type="xml">
+			<form string="Family Album">
+				<sheet>
+					<group>
+						<field name="name"/>
+						<field name="code" readonly="1"/>
+						<field name="user_id"/>
+						<field name="sequence"/>
+						<field name="active"/>
+					</group>
+					<group>
+						<field name="description"/>
+					</group>
+				</sheet>
+			</form>
+		</field>
+	</record>
+	<record id="action_dt_memoire_album" model="ir.actions.act_window">
+		<field name="name">Family Albums</field>
+		<field name="res_model">dt.memoire.album</field>
+		<field name="view_mode">list,form</field>
+	</record>
+	<record id="view_dt_memoire_tag_tree" model="ir.ui.view">
+		<field name="name">dt.memoire.tag.tree</field>
+		<field name="model">dt.memoire.tag</field>
+		<field name="arch" type="xml">
+			<list string="Family Tags">
+				<field name="name"/>
+				<field name="color"/>
+			</list>
+		</field>
+	</record>
+	<record id="action_dt_memoire_tag" model="ir.actions.act_window">
+		<field name="name">Family Tags</field>
+		<field name="res_model">dt.memoire.tag</field>
+		<field name="view_mode">list,form</field>
+	</record>
+	<menuitem id="menu_dt_memoire_root" name="Family Memories" parent="dt_core.menu_dt_root" sequence="20"/>
+	<menuitem id="menu_dt_memoire_diary" name="Kỷ niệm" parent="menu_dt_memoire_root" action="action_dt_memoire_diary" sequence="10"/>
+	<menuitem id="menu_dt_memoire_album" name="Album" parent="menu_dt_memoire_root" action="action_dt_memoire_album" sequence="20"/>
+	<menuitem id="menu_dt_memoire_tag" name="Tag" parent="menu_dt_memoire_root" action="action_dt_memoire_tag" sequence="30"/>
 </odoo>

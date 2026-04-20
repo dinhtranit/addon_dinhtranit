@@ -7,9 +7,9 @@ from pathlib import Path
 from odoo import api, fields, models
 
 
-class DTMedia(models.Model):
+class FamilyMedia(models.Model):
     _name = "dt.media"
-    _description = "DT Shared Media"
+    _description = "Family Shared Media"
     _order = "sequence, id"
 
     name = fields.Char(required=True)

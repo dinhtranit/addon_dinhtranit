@@ -8,11 +8,11 @@ from odoo.http import request
 from odoo.addons.portal.controllers.portal import pager as portal_pager
 
 
-class DTExpensePortal(http.Controller):
+class FamilyExpensePortal(http.Controller):
 
     def _base_values(self, **extra):
         apps = request.env["dt.app"].sudo().search([("is_active", "=", True)], order="sequence, id")
-        values = {"app_cards": apps, "page_name": extra.get("page_name", "expenses"), "page_title": extra.get("page_title", "DT Expense"), "page_subtitle": extra.get("page_subtitle", ""), "back_url": extra.get("back_url", "/my/apps")}
+        values = {"app_cards": apps, "page_name": extra.get("page_name", "expenses"), "page_title": extra.get("page_title", "Family Expense"), "page_subtitle": extra.get("page_subtitle", ""), "back_url": extra.get("back_url", "/my/apps")}
         values.update(extra)
         return values
 
