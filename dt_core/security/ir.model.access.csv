@@ -1,5 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_dt_app_user,dt.app user,model_dt_app,base.group_user,1,1,1,1
-access_dt_app_portal,dt.app portal,model_dt_app,base.group_portal,1,0,0,0
-access_dt_media_user,dt.media user,model_dt_media,base.group_user,1,1,1,1
-access_dt_media_portal,dt.media portal,model_dt_media,base.group_portal,1,1,1,1
