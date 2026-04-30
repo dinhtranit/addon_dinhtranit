@@ -25,18 +25,6 @@ __pycache__/
 .venv/
 venv/
 ENV/
-env.bak/
-venv.bak/
-
-# =========================
-# Distribution / packaging
-# =========================
-build/
-dist/
-*.egg-info/
-.eggs/
-*.egg
-MANIFEST
 
 # =========================
 # Logs & temp
@@ -48,7 +36,7 @@ MANIFEST
 *~
 
 # =========================
-# Unit test / coverage
+# Test / coverage
 # =========================
 .coverage
 .coverage.*
@@ -64,44 +52,40 @@ htmlcov/
 .ipynb_checkpoints/
 
 # =========================
-# Odoo
+# Odoo (RUNTIME ONLY)
 # =========================
+# log + pid
 *.log
 *.pid
-*.wkhtmltopdf*
-instance/
-.webassets-cache
-*.pot
-*.mo
 
-# Odoo filestore (QUAN TRỌNG: không commit)
+# filestore (dữ liệu user upload)
 filestore/
 data_dir/
 sessions/
 
-# =========================
-# IDE - VSCode
-# =========================
-.vscode/
+# assets build (auto generated)
+.webassets-cache
+
+# wkhtmltopdf temp
+*.wkhtmltopdf*
 
 # =========================
-# IDE - IntelliJ / PyCharm
+# IDE
 # =========================
+.vscode/
 .idea/
 *.iml
 *.ipr
 *.iws
 
-# =========================
 # Eclipse
-# =========================
 .project
 .classpath
 .settings/
 .metadata
 
 # =========================
-# Node (nếu có dùng frontend)
+# Node (nếu có dùng OWL / frontend)
 # =========================
 node_modules/
 npm-debug.log*
@@ -109,12 +93,30 @@ yarn-debug.log*
 yarn-error.log*
 
 # =========================
-# Misc
+# Build / packaging
 # =========================
-*.csv
-*.sqlite3
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
 
 # =========================
-# MacOS extended
+# Database / backup (local)
 # =========================
-*/.DS_Store
+*.sqlite3
+*.dump
+*.sql
+
+# =========================
+# IMPORTANT: DO NOT IGNORE
+# =========================
+# ⚠️ Các file dưới đây là CORE của Odoo:
+# - CSV (security, data)
+# - XML (views, data)
+# - PO/MO (translations)
+# → TUYỆT ĐỐI KHÔNG ignore
+
+# (không có rule *.csv)
+# (không có rule *.xml)
+# (không có rule *.po / *.mo)

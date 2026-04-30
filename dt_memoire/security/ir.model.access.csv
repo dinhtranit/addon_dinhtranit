@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_dt_memoire_diary_user,dt.memoire.diary user,model_dt_memoire_diary,base.group_user,1,1,1,1
+access_dt_memoire_diary_portal,dt.memoire.diary portal,model_dt_memoire_diary,base.group_portal,1,1,1,1
+access_dt_memoire_album_user,dt.memoire.album user,model_dt_memoire_album,base.group_user,1,1,1,1
+access_dt_memoire_album_portal,dt.memoire.album portal,model_dt_memoire_album,base.group_portal,1,1,1,1
+access_dt_memoire_tag_user,dt.memoire.tag user,model_dt_memoire_tag,base.group_user,1,1,1,1
+access_dt_memoire_tag_portal,dt.memoire.tag portal,model_dt_memoire_tag,base.group_portal,1,0,0,0
