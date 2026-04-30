@@ -73,3 +73,8 @@ Xem chi tiết tại: `dt_memoire/MODULE_GUIDE.md`
 - Nếu muốn dữ liệu danh mục mẫu mới xuất hiện đầy đủ trong database cũ, cần upgrade `dt_expense`.
 - `dt_expense` có `post_init_hook` để normalize các field mới từ dữ liệu cũ và tránh gán nhầm category private cũ cho superuser.
 - Bug upload ảnh/video mà bạn đã nêu **chưa xử lý trong đợt này** theo đúng scope đã chốt trước khi sửa.
+
+
+## Ghi chú frontend mới
+
+- Các hành vi JS trên portal liên quan đến nhập tiền và form chi tiêu đã được chuyển sang `publicWidget` của Odoo để tránh lỗi không bind khi assets hoặc lifecycle frontend thay đổi.

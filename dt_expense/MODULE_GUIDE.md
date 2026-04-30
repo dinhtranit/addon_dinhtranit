@@ -242,3 +242,9 @@ Mục tiêu của hook là giảm rủi ro khi update từ các bản code thử
 3. `controllers/portal.py`
 4. `templates/dt_expense_templates.xml`
 5. `hooks.py`
+
+
+## Cập nhật JS frontend
+
+- Form chi tiêu/thu nhập đã chuyển sang `publicWidget` để xử lý đổi loại giao dịch (`expense/income/adjustment`) ổn định hơn trên portal/website.
+- Selector áp dụng: `form[data-expense-form="1"]`.

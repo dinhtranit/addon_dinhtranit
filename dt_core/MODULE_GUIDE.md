@@ -113,3 +113,10 @@ Hành vi:
 ## 7. Ghi chú vận hành
 - `dt.media` hiện vẫn lưu chính thức bằng attachment của Odoo.
 - Bug media upload tổng quát của project **chưa được xử lý trong đợt này**; chỉ phần upload avatar của profile đã được làm trong scope hiện tại.
+
+
+## Cập nhật JS frontend
+
+- Widget gợi ý nhập tiền đã được chuyển sang chuẩn website widget của Odoo bằng `publicWidget` (`@web/legacy/js/public/public_widget`).
+- Selector áp dụng: `input[data-money-input="1"]`.
+- Lý do: bám đúng lifecycle assets/frontend của Odoo portal, ổn định hơn so với cách tự bind bằng `DOMContentLoaded`.

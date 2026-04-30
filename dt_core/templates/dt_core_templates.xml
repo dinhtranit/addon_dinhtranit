@@ -22,17 +22,13 @@
                     <t t-out="0"/>
                 </main>
                 <nav class="dt-bottom-nav">
-                    <a href="/my/apps" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'apps' else ''}">
-                        <span>⌂</span>
-                        <small>Apps</small>
+                    <a href="/my/apps/expenses" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'expenses' else ''}">
+                        <span>💸</span>
+                        <small>Tài Chính</small>
                     </a>
                     <a href="/my/apps/memories" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'memories' else ''}">
                         <span>🕒</span>
-                        <small>Memories</small>
-                    </a>
-                    <a href="/my/apps/expenses" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'expenses' else ''}">
-                        <span>💸</span>
-                        <small>Expense</small>
+                        <small>Dòng thời gian</small>
                     </a>
                     <a href="/my/profile" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'profile' else ''}">
                         <span>👤</span>

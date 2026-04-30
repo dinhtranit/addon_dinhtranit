@@ -4,6 +4,19 @@
         <t t-call="dt_core.portal_shell">
             <a href="/my/apps/expenses/new?entry_type=expense" class="dt-fab" aria-label="Thêm giao dịch">+</a>
             <section class="dt-section">
+                <div class="dt-card d-none">
+                    <div class="dt-section-title">Cập nhật số tiền hiện tại</div>
+                    <div class="dt-text-muted">Khi lưu, hệ thống sẽ tự sinh một giao dịch điều chỉnh +/- để số dư khớp với số bạn nhập.</div>
+                    <form action="/my/apps/expenses/balance/save" method="post" class="dt-form dt-form-inline mt-2">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <label class="dt-field mb-0 dt-form-inline__grow">
+                            <span>Số tiền hiện tại</span>
+                            <input type="text" name="current_amount" t-att-value="current_balance_input" inputmode="numeric" autocomplete="off" data-money-input="1" data-money-suggestions="1000,10000,100000,1000000" placeholder="0" required="required"/>
+                        </label>
+                        <button type="submit" class="dt-btn dt-btn--primary">Lưu số dư</button>
+                    </form>
+                </div>
+
                 <div class="dt-summary-grid">
                     <div class="dt-stat-card">
                         <div class="dt-stat-card__value"><t t-esc="current_balance_label"/></div>
@@ -19,35 +32,22 @@
                     </div>
                     <div class="dt-stat-card">
                         <div class="dt-stat-card__value"><t t-esc="month_net_label"/></div>
-                        <div class="dt-stat-card__label">Ròng tháng này • <t t-esc="today_count"/> giao dịch hôm nay</div>
+                        <div class="dt-stat-card__label">Ròng tháng này(<t t-esc="today_count"/> hđ)</div>
                     </div>
-                </div>
-
-                <div class="dt-card">
-                    <div class="dt-section-title">Cập nhật số tiền hiện tại</div>
-                    <div class="dt-text-muted">Khi lưu, hệ thống sẽ tự sinh một giao dịch điều chỉnh +/- để số dư khớp với số bạn nhập.</div>
-                    <form action="/my/apps/expenses/balance/save" method="post" class="dt-form dt-form-inline mt-2">
-                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                        <label class="dt-field mb-0 dt-form-inline__grow">
-                            <span>Số tiền hiện tại</span>
-                            <input type="text" name="current_amount" t-att-value="current_balance_input" inputmode="numeric" autocomplete="off" data-money-input="1" data-money-suggestions="1000,10000,100000,1000000" placeholder="0" required="required"/>
-                        </label>
-                        <button type="submit" class="dt-btn dt-btn--primary">Lưu số dư</button>
-                    </form>
                 </div>
 
                 <div class="dt-shortcuts">
                     <a href="/my/apps/expenses/new?entry_type=expense" class="dt-app-card">
                         <div class="dt-app-card__icon">💸</div>
                         <div class="dt-app-card__content">
-                            <div class="dt-app-card__name">Nhập chi tiêu</div>
+                            <div class="dt-app-card__name">Thêm chi tiêu</div>
                             <div class="dt-app-card__desc">Tạo nhanh giao dịch chi mới.</div>
                         </div>
                     </a>
                     <a href="/my/apps/expenses/new?entry_type=income" class="dt-app-card">
                         <div class="dt-app-card__icon">💰</div>
                         <div class="dt-app-card__content">
-                            <div class="dt-app-card__name">Nhập thu nhập</div>
+                            <div class="dt-app-card__name">Thêm thu nhập</div>
                             <div class="dt-app-card__desc">Theo dõi nhiều nguồn tiền vào.</div>
                         </div>
                     </a>
@@ -69,7 +69,6 @@
 
                 <div class="dt-report-block">
                     <div class="dt-section-title">Giao dịch gần đây bạn có thể xem</div>
-                    <div class="dt-text-muted">Public chỉ có nghĩa là user cùng gia đình / công ty đang đăng nhập có thể xem, không public ra ngoài web.</div>
                     <div class="dt-list">
                         <t t-if="recent_entries">
                             <t t-foreach="recent_entries" t-as="entry">
@@ -126,29 +125,6 @@
                 <form action="/my/apps/expenses/save" method="post" enctype="multipart/form-data" class="dt-form dt-card p-3" data-expense-form="1">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <input t-if="entry" type="hidden" name="entry_id" t-att-value="entry.id"/>
-
-                    <label class="dt-field">
-                        <span>Loại giao dịch</span>
-                        <select name="entry_type" data-entry-type-select="1">
-                            <t t-foreach="entry_type_options" t-as="type_item">
-                                <option t-att-value="type_item[0]" t-att-selected="'selected' if current_entry_type == type_item[0] else None"><t t-esc="type_item[1]"/></option>
-                            </t>
-                        </select>
-                    </label>
-
-                    <label class="dt-field" data-adjustment-only="1" t-att-style="'display:none;' if current_entry_type != 'adjustment' else None">
-                        <span>Hướng điều chỉnh</span>
-                        <select name="adjustment_direction">
-                            <option value="increase" t-att-selected="'selected' if (entry and entry.adjustment_direction == 'increase') or (not entry) else None">Tăng số dư</option>
-                            <option value="decrease" t-att-selected="'selected' if entry and entry.adjustment_direction == 'decrease' else None">Giảm số dư</option>
-                        </select>
-                    </label>
-
-                    <label class="dt-field">
-                        <span>Ngày giao dịch</span>
-                        <input type="date" name="expense_date" t-att-value="default_date"/>
-                    </label>
-
                     <label class="dt-field" data-category-field="1" t-att-style="'display:none;' if current_entry_type == 'adjustment' else None">
                         <span>Danh mục</span>
                         <select name="category_id" data-category-select="1" t-att-required="'required' if current_entry_type != 'adjustment' else None">
@@ -158,24 +134,32 @@
                             </t>
                         </select>
                     </label>
-
                     <label class="dt-field">
-                        <span>Quyền xem</span>
-                        <select name="privacy">
-                            <t t-foreach="request.env['dt.expense.entry']._fields['privacy'].selection" t-as="privacy_item">
-                                <option t-att-value="privacy_item[0]" t-att-selected="'selected' if (entry and entry.privacy == privacy_item[0]) or (not entry and privacy_item[0] == 'private') else None"><t t-esc="privacy_item[1]"/></option>
-                            </t>
-                        </select>
+                        <span>Tiêu đề ngắn</span>
+                        <input type="text" name="name" t-att-value="entry.name if entry else ''" placeholder="Ví dụ: Đi chợ chiều, lương tháng, điều chỉnh ví tiền mặt"/>
                     </label>
-
                     <label class="dt-field">
                         <span>Số tiền</span>
                         <input type="text" name="amount" t-att-value="amount_input_value" inputmode="numeric" autocomplete="off" data-money-input="1" data-money-suggestions="1000,10000,100000,1000000" placeholder="0" required="required"/>
                     </label>
-
+                    <label class="dt-field" data-adjustment-only="1" t-att-style="'display:none;' if current_entry_type != 'adjustment' else None">
+                        <span>Hướng điều chỉnh</span>
+                        <select name="adjustment_direction">
+                            <option value="increase" t-att-selected="'selected' if (entry and entry.adjustment_direction == 'increase') or (not entry) else None">Tăng số dư</option>
+                            <option value="decrease" t-att-selected="'selected' if entry and entry.adjustment_direction == 'decrease' else None">Giảm số dư</option>
+                        </select>
+                    </label>
                     <label class="dt-field">
-                        <span>Tiêu đề ngắn</span>
-                        <input type="text" name="name" t-att-value="entry.name if entry else ''" placeholder="Ví dụ: Đi chợ chiều, lương tháng, điều chỉnh ví tiền mặt"/>
+                        <span>Ngày giao dịch</span>
+                        <input type="date" name="expense_date" t-att-value="default_date"/>
+                    </label>
+                    <label class="dt-field">
+                        <span>Loại giao dịch</span>
+                        <select name="entry_type" data-entry-type-select="1">
+                            <t t-foreach="entry_type_options" t-as="type_item">
+                                <option t-att-value="type_item[0]" t-att-selected="'selected' if current_entry_type == type_item[0] else None"><t t-esc="type_item[1]"/></option>
+                            </t>
+                        </select>
                     </label>
 
                     <label class="dt-field">

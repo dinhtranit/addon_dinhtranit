@@ -1,54 +1,61 @@
 /** @odoo-module **/
 
-(function () {
-    function syncExpenseForm(form) {
-        const entryTypeSelect = form.querySelector('[data-entry-type-select="1"]');
-        const categoryField = form.querySelector('[data-category-field="1"]');
-        const categorySelect = form.querySelector('[data-category-select="1"]');
-        const adjustmentField = form.querySelector('[data-adjustment-only="1"]');
-        if (!entryTypeSelect || !categoryField || !categorySelect || !adjustmentField) {
+import publicWidget from "@web/legacy/js/public/public_widget";
+
+publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
+    selector: 'form[data-expense-form="1"]',
+    events: {
+        'change [data-entry-type-select="1"]': "_onEntryTypeChange",
+    },
+
+    start() {
+        this.entryTypeSelect = this.el.querySelector('[data-entry-type-select="1"]');
+        this.categoryField = this.el.querySelector('[data-category-field="1"]');
+        this.categorySelect = this.el.querySelector('[data-category-select="1"]');
+        this.adjustmentField = this.el.querySelector('[data-adjustment-only="1"]');
+        this._updateState();
+        return this._super(...arguments);
+    },
+
+    _onEntryTypeChange() {
+        this._updateState();
+    },
+
+    _updateState() {
+        if (!this.entryTypeSelect || !this.categoryField || !this.categorySelect || !this.adjustmentField) {
             return;
         }
 
-        const updateState = function () {
-            const currentType = entryTypeSelect.value || 'expense';
-            const isAdjustment = currentType === 'adjustment';
-            categoryField.style.display = isAdjustment ? 'none' : '';
-            adjustmentField.style.display = isAdjustment ? '' : 'none';
-            categorySelect.required = !isAdjustment;
-            let hasSelectedVisibleOption = false;
-            Array.from(categorySelect.options).forEach(function (option, index) {
-                if (!option.value) {
-                    option.hidden = false;
-                    if (index === 0) {
-                        return;
-                    }
-                }
-                if (!option.value) {
+        const currentType = this.entryTypeSelect.value || "expense";
+        const isAdjustment = currentType === "adjustment";
+        this.categoryField.style.display = isAdjustment ? "none" : "";
+        this.adjustmentField.style.display = isAdjustment ? "" : "none";
+        this.categorySelect.required = !isAdjustment;
+
+        let hasSelectedVisibleOption = false;
+        Array.from(this.categorySelect.options).forEach((option, index) => {
+            if (!option.value) {
+                option.hidden = false;
+                if (index === 0) {
                     return;
                 }
-                const optionType = option.dataset.entryType;
-                const visible = optionType === currentType;
-                option.hidden = !visible;
-                if (!visible && option.selected) {
-                    option.selected = false;
-                }
-                if (visible && option.selected) {
-                    hasSelectedVisibleOption = true;
-                }
-            });
-            if (isAdjustment) {
-                categorySelect.value = '';
-            } else if (!hasSelectedVisibleOption) {
-                categorySelect.value = '';
             }
-        };
+            if (!option.value) {
+                return;
+            }
+            const optionType = option.dataset.entryType;
+            const visible = optionType === currentType;
+            option.hidden = !visible;
+            if (!visible && option.selected) {
+                option.selected = false;
+            }
+            if (visible && option.selected) {
+                hasSelectedVisibleOption = true;
+            }
+        });
 
-        entryTypeSelect.addEventListener('change', updateState);
-        updateState();
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('form[data-expense-form="1"]').forEach(syncExpenseForm);
-    });
-})();
+        if (isAdjustment || !hasSelectedVisibleOption) {
+            this.categorySelect.value = "";
+        }
+    },
+});
