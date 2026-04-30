@@ -258,4 +258,4 @@ dmypy.json
 */.DS_Store
 *.DS_Store
 .DS_Store
-*/__pycache__/*
+dt_core/__pycache__/__init__.cpython-312.pyc
