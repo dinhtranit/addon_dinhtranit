@@ -1,363 +1,410 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-	<template id="portal_expense_home" name="Family Expense Home">
-		<t t-call="dt_core.portal_shell">
-			<a href="/my/apps/expenses/new" class="dt-fab" aria-label="Thêm chi tiêu">+</a>
-			<section class="dt-section">
-				<div class="dt-summary-grid">
-					<div class="dt-stat-card">
-						<div class="dt-stat-card__value">
-							<t t-esc="today_total_label"/>
-						</div>
-						<div class="dt-stat-card__label">Chi hôm nay • 
-							<t t-esc="today_count"/> khoản
-						</div>
-					</div>
-					<div class="dt-stat-card">
-						<div class="dt-stat-card__value">
-							<t t-esc="month_total_label"/>
-						</div>
-						<div class="dt-stat-card__label">Tổng tháng này</div>
-					</div>
-				</div>
-				<div class="dt-shortcuts">
-					<a href="/my/apps/expenses/new" class="dt-app-card">
-						<div class="dt-app-card__icon">➕</div>
-						<div class="dt-app-card__content">
-							<div class="dt-app-card__name">Nhập khoản chi</div>
-							<div class="dt-app-card__desc">Ngày mặc định là hôm nay.</div>
-						</div>
-					</a>
-					<a href="/my/apps/expenses/reports" class="dt-app-card">
-						<div class="dt-app-card__icon">📊</div>
-						<div class="dt-app-card__content">
-							<div class="dt-app-card__name">Xem báo cáo</div>
-							<div class="dt-app-card__desc">Theo tuần, tháng, năm.</div>
-						</div>
-					</a>
-					<a href="/my/apps/expenses/categories" class="dt-app-card">
-						<div class="dt-app-card__icon">🏷️</div>
-						<div class="dt-app-card__content">
-							<div class="dt-app-card__name">Loại chi tiêu</div>
-							<div class="dt-app-card__desc">
-								<t t-esc="category_count"/> loại đang có.
-							</div>
-						</div>
-					</a>
-					<a href="/my/profile" class="dt-app-card">
-						<div class="dt-app-card__icon">👤</div>
-						<div class="dt-app-card__content">
-							<div class="dt-app-card__name">Trang cá nhân</div>
-							<div class="dt-app-card__desc">Sửa thông tin cá nhân.</div>
-						</div>
-					</a>
-				</div>
-				<div class="dt-report-block">
-					<div class="dt-section-title">Khoản chi gần đây</div>
-					<div class="dt-list">
-						<t t-if="recent_entries">
-							<t t-foreach="recent_entries" t-as="entry">
-								<div class="dt-entry-row">
-									<div class="dt-entry-head">
-										<div>
-											<div class="dt-entry-title">
-												<t t-esc="entry.category_id.icon or '💸'"/>
-												<t t-esc="entry.name or entry.category_id.name"/>
-											</div>
-											<div class="dt-entry-meta">
-												<span class="dt-tag">
-													<t t-esc="entry.expense_date.strftime('%d/%m/%Y') if entry.expense_date else ''"/>
-												</span>
-												<span class="dt-tag">#
-													<t t-esc="entry.code"/>
-												</span>
-												<span class="dt-tag" t-if="entry.media_count">📎 
-													<t t-esc="entry.media_count"/>
-												</span>
-											</div>
-										</div>
-										<div class="dt-entry-title">
-											<t t-esc="'%.0f' % entry.amount"/>
-											<t t-esc="entry.currency_id.symbol or entry.currency_id.name or ''"/>
-										</div>
-									</div>
-									<div t-if="entry.note" class="dt-entry-note">
-										<t t-esc="entry.note"/>
-									</div>
-									<div class="dt-top-actions">
-										<a t-att-href="'/my/apps/expenses/%s/edit' % entry.id" class="dt-btn dt-btn--secondary">Sửa</a>
-										<form t-att-action="'/my/apps/expenses/%s/delete' % entry.id" method="post">
-											<input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-											<button type="submit" class="dt-btn dt-btn--ghost">Xóa</button>
-										</form>
-									</div>
-								</div>
-							</t>
-						</t>
-						<t t-else="">
-							<div class="dt-empty-state">
-								<div class="dt-section-title">Chưa có khoản chi nào</div>
-								<div class="dt-text-muted">Bắt đầu bằng nút cộng để nhập khoản chi đầu tiên.</div>
-							</div>
-						</t>
-					</div>
-				</div>
-				<t t-if="pager and pager.get('page_count', 0) &gt; 1">
-					<div class="o_portal_pager">
-						<t t-call="portal.portal_pager"/>
-					</div>
-				</t>
-			</section>
-		</t>
-	</template>
-	<template id="portal_expense_form" name="Family Expense Form">
-		<t t-call="dt_core.portal_shell">
-			<section class="dt-section">
-				<form action="/my/apps/expenses/save" method="post" enctype="multipart/form-data" class="dt-form dt-card p-3">
-					<input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-					<input t-if="entry" type="hidden" name="entry_id" t-att-value="entry.id"/>
-					<label class="dt-field">
-						<span>Ngày chi</span>
-						<input type="date" name="expense_date" t-att-value="default_date"/>
-					</label>
-					<label class="dt-field">
-						<span>Loại chi tiêu</span>
-						<select name="category_id" required="required">
-							<option value="">Chọn loại chi</option>
-							<t t-foreach="categories" t-as="cat">
-								<option t-att-value="cat.id" t-att-selected="'selected' if entry and entry.category_id.id == cat.id else None">
-									<t t-esc="cat.icon or '💸'"/>
-									<t t-esc="cat.name"/>
-								</option>
-							</t>
-						</select>
-					</label>
-					<label class="dt-field">
-						<span>Số tiền</span>
-						<input type="number" step="0.01" min="0" name="amount" t-att-value="entry.amount if entry else ''" placeholder="0" required="required"/>
-					</label>
-					<label class="dt-field">
-						<span>Tiêu đề ngắn</span>
-						<input type="text" name="name" t-att-value="entry.name if entry else ''" placeholder="Ví dụ: Đi chợ chiều, mua sách cho bé"/>
-					</label>
-					<label class="dt-field">
-						<span>Ghi chú</span>
-						<textarea name="note" rows="4" placeholder="Ghi lại nội dung chi tiêu hoặc lưu ý thêm...">
-							<t t-esc="entry.note if entry else ''"/>
-						</textarea>
-					</label>
-					<label class="dt-field">
-						<span>Hình ảnh / video</span>
-						<input type="file" name="media_files" multiple="multiple" accept="image/*,video/*"/>
-						<div class="dt-file-help">Có thể đính kèm nhiều hình hóa đơn, video hoặc chứng từ cùng lúc.</div>
-					</label>
-					<button type="submit" class="dt-btn dt-btn--primary">Lưu khoản chi</button>
-				</form>
-				<t t-if="entry and entry.get_media_items()">
-					<div class="dt-card">
-						<div class="dt-section-title">Media hiện có</div>
-						<div class="dt-media-grid">
-							<t t-foreach="entry.get_media_items()" t-as="media">
-								<div class="dt-media-tile">
-									<t t-if="media.media_type == 'image'">
-										<img t-att-src="media.image_url()" alt="receipt"/>
-									</t>
-									<t t-else="">
-										<video playsinline="playsinline" preload="metadata">
-											<source t-att-src="media.stream_url()" t-att-type="media.mimetype or 'video/mp4'"/>
-										</video>
-									</t>
-									<form t-att-action="'/my/apps/expenses/media/%s/delete' % media.id" method="post" class="position-absolute" style="top:8px;right:8px;">
-										<input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-										<input type="hidden" name="entry_id" t-att-value="entry.id"/>
-										<button type="submit" class="dt-btn dt-btn--ghost" style="padding:6px 10px;">✕</button>
-									</form>
-								</div>
-							</t>
-						</div>
-					</div>
-				</t>
-			</section>
-		</t>
-	</template>
-	<template id="portal_expense_categories" name="Family Expense Categories">
-		<t t-call="dt_core.portal_shell">
-			<section class="dt-section">
-				<form action="/my/apps/expenses/categories/save" method="post" class="dt-form dt-card p-3">
-					<input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-					<label class="dt-field">
-						<span>Tên loại chi tiêu</span>
-						<input type="text" name="name" placeholder="Ví dụ: Ăn uống, Học hành, Con cái..." required="required"/>
-					</label>
-					<label class="dt-field">
-						<span>Icon</span>
-						<input type="text" name="icon" value="💸" placeholder="Ví dụ: 🍜, 📚, 🧒"/>
-					</label>
-					<label class="dt-field">
-						<span>Thứ tự</span>
-						<input type="number" name="sequence" value="10"/>
-					</label>
-					<label class="dt-field">
-						<span>Ghi chú</span>
-						<input type="text" name="note" placeholder="Tùy chọn"/>
-					</label>
-					<button type="submit" class="dt-btn dt-btn--primary">Thêm loại chi</button>
-				</form>
-				<div class="dt-list">
-					<t t-foreach="categories" t-as="cat">
-						<div class="dt-category-row">
-							<div class="dt-entry-head">
-								<div>
-									<div class="dt-entry-title">
-										<t t-esc="cat.icon or '💸'"/>
-										<t t-esc="cat.name"/>
-									</div>
-									<div class="dt-entry-meta">
-										<span class="dt-tag">#
-											<t t-esc="cat.code"/>
-										</span>
-										<span class="dt-tag">
-											<t t-esc="cat.entry_count"/> khoản chi
-										</span>
-										<span t-if="cat.user_id" class="dt-tag">Riêng tôi</span>
-										<span t-if="not cat.user_id" class="dt-tag">Dùng chung</span>
-									</div>
-								</div>
-							</div>
-							<div t-if="cat.note" class="dt-entry-note">
-								<t t-esc="cat.note"/>
-							</div>
-						</div>
-					</t>
-				</div>
-			</section>
-		</t>
-	</template>
-	<template id="portal_expense_reports" name="Family Expense Reports">
-		<t t-call="dt_core.portal_shell">
-			<section class="dt-section">
-				<form method="get" action="/my/apps/expenses/reports" class="dt-form dt-card p-3">
-					<label class="dt-field">
-						<span>Kiểu kỳ báo cáo</span>
-						<select name="period">
-							<option value="week" t-att-selected="'selected' if period == 'week' else None">Tuần</option>
-							<option value="month" t-att-selected="'selected' if period == 'month' else None">Tháng</option>
-							<option value="year" t-att-selected="'selected' if period == 'year' else None">Năm</option>
-						</select>
-					</label>
-					<label class="dt-field">
-						<span>Mốc ngày</span>
-						<input type="date" name="anchor_date" t-att-value="anchor_date"/>
-					</label>
-					<label class="dt-field">
-						<span>Lọc theo loại</span>
-						<select name="category_id">
-							<option value="">Tất cả</option>
-							<t t-foreach="categories" t-as="cat">
-								<option t-att-value="cat.id" t-att-selected="'selected' if selected_category and selected_category.id == cat.id else None">
-									<t t-esc="cat.icon or '💸'"/>
-									<t t-esc="cat.name"/>
-								</option>
-							</t>
-						</select>
-					</label>
-					<button type="submit" class="dt-btn dt-btn--secondary">Xem báo cáo</button>
-				</form>
-				<div class="dt-summary-grid">
-					<div class="dt-stat-card">
-						<div class="dt-stat-card__value">
-							<t t-esc="total_label"/>
-						</div>
-						<div class="dt-stat-card__label">Tổng chi trong kỳ</div>
-					</div>
-					<div class="dt-stat-card">
-						<div class="dt-stat-card__value">
-							<t t-esc="average_label"/>
-						</div>
-						<div class="dt-stat-card__label">Bình quân / khoản</div>
-					</div>
-				</div>
-				<div class="dt-report-block">
-					<div class="dt-section-title">Theo loại chi tiêu</div>
-					<t t-if="category_bars">
-						<t t-foreach="category_bars" t-as="row">
-							<div class="dt-report-row">
-								<div class="dt-entry-head">
-									<div class="dt-entry-note">
-										<t t-esc="row['label']"/>
-									</div>
-									<div class="dt-entry-note">
-										<t t-esc="row['amount_label']"/>
-									</div>
-								</div>
-								<div class="dt-bar-track">
-									<div class="dt-bar-fill" t-attf-style="width: #{row['ratio']}%;"></div>
-								</div>
-							</div>
-						</t>
-					</t>
-					<t t-else="">
-						<div class="dt-empty-state">Chưa có dữ liệu cho bộ lọc này.</div>
-					</t>
-				</div>
-				<div class="dt-report-block">
-					<div class="dt-section-title">Xu hướng theo thời gian</div>
-					<t t-if="trend_bars">
-						<t t-foreach="trend_bars" t-as="row">
-							<div class="dt-report-row">
-								<div class="dt-entry-head">
-									<div class="dt-entry-note">
-										<t t-esc="row['label']"/>
-									</div>
-									<div class="dt-entry-note">
-										<t t-esc="row['amount_label']"/>
-									</div>
-								</div>
-								<div class="dt-bar-track">
-									<div class="dt-bar-fill" t-attf-style="width: #{row['ratio']}%;"></div>
-								</div>
-							</div>
-						</t>
-					</t>
-				</div>
-				<div class="dt-report-block">
-					<div class="dt-section-title">Danh sách khoản chi</div>
-					<div class="dt-list">
-						<t t-if="entries">
-							<t t-foreach="entries" t-as="entry">
-								<div class="dt-entry-row">
-									<div class="dt-entry-head">
-										<div>
-											<div class="dt-entry-title">
-												<t t-esc="entry.category_id.icon or '💸'"/>
-												<t t-esc="entry.name or entry.category_id.name"/>
-											</div>
-											<div class="dt-entry-meta">
-												<span class="dt-tag">
-													<t t-esc="entry.expense_date.strftime('%d/%m/%Y') if entry.expense_date else ''"/>
-												</span>
-												<span class="dt-tag">#
-													<t t-esc="entry.code"/>
-												</span>
-											</div>
-										</div>
-										<div class="dt-entry-title">
-											<t t-esc="'%.0f' % entry.amount"/>
-											<t t-esc="entry.currency_id.symbol or entry.currency_id.name or ''"/>
-										</div>
-									</div>
-									<div t-if="entry.note" class="dt-entry-note">
-										<t t-esc="entry.note"/>
-									</div>
-								</div>
-							</t>
-						</t>
-						<t t-else="">
-							<div class="dt-empty-state">Không có khoản chi nào trong kỳ này.</div>
-						</t>
-					</div>
-				</div>
-			</section>
-		</t>
-	</template>
+    <template id="portal_expense_home" name="Family Expense Home">
+        <t t-call="dt_core.portal_shell">
+            <a href="/my/apps/expenses/new?entry_type=expense" class="dt-fab" aria-label="Thêm giao dịch">+</a>
+            <section class="dt-section">
+                <div class="dt-summary-grid">
+                    <div class="dt-stat-card">
+                        <div class="dt-stat-card__value"><t t-esc="current_balance_label"/></div>
+                        <div class="dt-stat-card__label">Số dư hiện tại của bạn</div>
+                    </div>
+                    <div class="dt-stat-card">
+                        <div class="dt-stat-card__value"><t t-esc="month_income_label"/></div>
+                        <div class="dt-stat-card__label">Tổng thu tháng này</div>
+                    </div>
+                    <div class="dt-stat-card">
+                        <div class="dt-stat-card__value"><t t-esc="month_expense_label"/></div>
+                        <div class="dt-stat-card__label">Tổng chi tháng này</div>
+                    </div>
+                    <div class="dt-stat-card">
+                        <div class="dt-stat-card__value"><t t-esc="month_net_label"/></div>
+                        <div class="dt-stat-card__label">Ròng tháng này • <t t-esc="today_count"/> giao dịch hôm nay</div>
+                    </div>
+                </div>
+
+                <div class="dt-card">
+                    <div class="dt-section-title">Cập nhật số tiền hiện tại</div>
+                    <div class="dt-text-muted">Khi lưu, hệ thống sẽ tự sinh một giao dịch điều chỉnh +/- để số dư khớp với số bạn nhập.</div>
+                    <form action="/my/apps/expenses/balance/save" method="post" class="dt-form dt-form-inline mt-2">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <label class="dt-field mb-0 dt-form-inline__grow">
+                            <span>Số tiền hiện tại</span>
+                            <input type="text" name="current_amount" t-att-value="current_balance_input" inputmode="numeric" autocomplete="off" data-money-input="1" data-money-suggestions="1000,10000,100000,1000000" placeholder="0" required="required"/>
+                        </label>
+                        <button type="submit" class="dt-btn dt-btn--primary">Lưu số dư</button>
+                    </form>
+                </div>
+
+                <div class="dt-shortcuts">
+                    <a href="/my/apps/expenses/new?entry_type=expense" class="dt-app-card">
+                        <div class="dt-app-card__icon">💸</div>
+                        <div class="dt-app-card__content">
+                            <div class="dt-app-card__name">Nhập chi tiêu</div>
+                            <div class="dt-app-card__desc">Tạo nhanh giao dịch chi mới.</div>
+                        </div>
+                    </a>
+                    <a href="/my/apps/expenses/new?entry_type=income" class="dt-app-card">
+                        <div class="dt-app-card__icon">💰</div>
+                        <div class="dt-app-card__content">
+                            <div class="dt-app-card__name">Nhập thu nhập</div>
+                            <div class="dt-app-card__desc">Theo dõi nhiều nguồn tiền vào.</div>
+                        </div>
+                    </a>
+                    <a href="/my/apps/expenses/reports" class="dt-app-card">
+                        <div class="dt-app-card__icon">📊</div>
+                        <div class="dt-app-card__content">
+                            <div class="dt-app-card__name">Xem báo cáo</div>
+                            <div class="dt-app-card__desc">Tổng hợp thu, chi và ròng theo kỳ.</div>
+                        </div>
+                    </a>
+                    <a href="/my/apps/expenses/categories" class="dt-app-card">
+                        <div class="dt-app-card__icon">🏷️</div>
+                        <div class="dt-app-card__content">
+                            <div class="dt-app-card__name">Danh mục thu chi</div>
+                            <div class="dt-app-card__desc"><t t-esc="income_category_count"/> thu nhập • <t t-esc="expense_category_count"/> chi tiêu</div>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="dt-report-block">
+                    <div class="dt-section-title">Giao dịch gần đây bạn có thể xem</div>
+                    <div class="dt-text-muted">Public chỉ có nghĩa là user cùng gia đình / công ty đang đăng nhập có thể xem, không public ra ngoài web.</div>
+                    <div class="dt-list">
+                        <t t-if="recent_entries">
+                            <t t-foreach="recent_entries" t-as="entry">
+                                <div class="dt-entry-row">
+                                    <div class="dt-entry-head">
+                                        <div>
+                                            <div class="dt-entry-title">
+                                                <t t-esc="entry.get_icon()"/>
+                                                <t t-esc="entry.name or entry.category_id.name or entry.get_entry_type_label()"/>
+                                            </div>
+                                            <div class="dt-entry-meta">
+                                                <span class="dt-tag"><t t-esc="entry.expense_date.strftime('%d/%m/%Y') if entry.expense_date else ''"/></span>
+                                                <span class="dt-tag">#<t t-esc="entry.code"/></span>
+                                                <span class="dt-tag"><t t-esc="entry.get_entry_type_label()"/></span>
+                                                <span class="dt-tag"><t t-esc="entry.get_privacy_label()"/></span>
+                                                <span class="dt-tag" t-if="entry.partner_id">👤 <t t-esc="entry.partner_id.name"/></span>
+                                                <span class="dt-tag" t-if="entry.media_count">📎 <t t-esc="entry.media_count"/></span>
+                                            </div>
+                                        </div>
+                                        <div t-att-class="'dt-entry-title %s' % (entry.amount_css_class or '')"><t t-esc="entry.amount_label"/></div>
+                                    </div>
+                                    <div t-if="entry.note" class="dt-entry-note"><t t-esc="entry.note"/></div>
+                                    <div class="dt-top-actions" t-if="entry.user_id == request.env.user">
+                                        <a t-att-href="'/my/apps/expenses/%s/edit' % entry.id" class="dt-btn dt-btn--secondary">Sửa</a>
+                                        <form t-att-action="'/my/apps/expenses/%s/delete' % entry.id" method="post">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <button type="submit" class="dt-btn dt-btn--ghost">Xóa</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </t>
+                        </t>
+                        <t t-else="">
+                            <div class="dt-empty-state">
+                                <div class="dt-section-title">Chưa có giao dịch nào</div>
+                                <div class="dt-text-muted">Bắt đầu bằng một khoản thu, khoản chi hoặc đặt số dư hiện tại.</div>
+                            </div>
+                        </t>
+                    </div>
+                </div>
+
+                <t t-if="pager and pager.get('page_count', 0) &gt; 1">
+                    <div class="o_portal_pager">
+                        <t t-call="portal.portal_pager"/>
+                    </div>
+                </t>
+            </section>
+        </t>
+    </template>
+
+    <template id="portal_expense_form" name="Family Expense Form">
+        <t t-call="dt_core.portal_shell">
+            <section class="dt-section">
+                <form action="/my/apps/expenses/save" method="post" enctype="multipart/form-data" class="dt-form dt-card p-3" data-expense-form="1">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input t-if="entry" type="hidden" name="entry_id" t-att-value="entry.id"/>
+
+                    <label class="dt-field">
+                        <span>Loại giao dịch</span>
+                        <select name="entry_type" data-entry-type-select="1">
+                            <t t-foreach="entry_type_options" t-as="type_item">
+                                <option t-att-value="type_item[0]" t-att-selected="'selected' if current_entry_type == type_item[0] else None"><t t-esc="type_item[1]"/></option>
+                            </t>
+                        </select>
+                    </label>
+
+                    <label class="dt-field" data-adjustment-only="1" t-att-style="'display:none;' if current_entry_type != 'adjustment' else None">
+                        <span>Hướng điều chỉnh</span>
+                        <select name="adjustment_direction">
+                            <option value="increase" t-att-selected="'selected' if (entry and entry.adjustment_direction == 'increase') or (not entry) else None">Tăng số dư</option>
+                            <option value="decrease" t-att-selected="'selected' if entry and entry.adjustment_direction == 'decrease' else None">Giảm số dư</option>
+                        </select>
+                    </label>
+
+                    <label class="dt-field">
+                        <span>Ngày giao dịch</span>
+                        <input type="date" name="expense_date" t-att-value="default_date"/>
+                    </label>
+
+                    <label class="dt-field" data-category-field="1" t-att-style="'display:none;' if current_entry_type == 'adjustment' else None">
+                        <span>Danh mục</span>
+                        <select name="category_id" data-category-select="1" t-att-required="'required' if current_entry_type != 'adjustment' else None">
+                            <option value="">Chọn danh mục</option>
+                            <t t-foreach="categories" t-as="cat">
+                                <option t-att-value="cat.id" t-att-data-entry-type="cat.category_type" t-att-selected="'selected' if entry and entry.category_id.id == cat.id else None"><t t-esc="cat.icon or '💸'"/> <t t-esc="cat.name"/></option>
+                            </t>
+                        </select>
+                    </label>
+
+                    <label class="dt-field">
+                        <span>Quyền xem</span>
+                        <select name="privacy">
+                            <t t-foreach="request.env['dt.expense.entry']._fields['privacy'].selection" t-as="privacy_item">
+                                <option t-att-value="privacy_item[0]" t-att-selected="'selected' if (entry and entry.privacy == privacy_item[0]) or (not entry and privacy_item[0] == 'private') else None"><t t-esc="privacy_item[1]"/></option>
+                            </t>
+                        </select>
+                    </label>
+
+                    <label class="dt-field">
+                        <span>Số tiền</span>
+                        <input type="text" name="amount" t-att-value="amount_input_value" inputmode="numeric" autocomplete="off" data-money-input="1" data-money-suggestions="1000,10000,100000,1000000" placeholder="0" required="required"/>
+                    </label>
+
+                    <label class="dt-field">
+                        <span>Tiêu đề ngắn</span>
+                        <input type="text" name="name" t-att-value="entry.name if entry else ''" placeholder="Ví dụ: Đi chợ chiều, lương tháng, điều chỉnh ví tiền mặt"/>
+                    </label>
+
+                    <label class="dt-field">
+                        <span>Ghi chú</span>
+                        <textarea name="note" rows="4" placeholder="Ghi lại nội dung giao dịch hoặc lưu ý thêm..."><t t-esc="entry.note if entry else ''"/></textarea>
+                    </label>
+
+                    <label class="dt-field">
+                        <span>Hình ảnh / video</span>
+                        <input type="file" name="media_files" multiple="multiple" accept="image/*,video/*"/>
+                        <div class="dt-file-help">Có thể đính kèm nhiều ảnh hóa đơn, video hoặc chứng từ cùng lúc.</div>
+                    </label>
+
+                    <button type="submit" class="dt-btn dt-btn--primary">Lưu giao dịch</button>
+                </form>
+
+                <t t-if="entry and entry.get_media_items()">
+                    <div class="dt-card">
+                        <div class="dt-section-title">Media hiện có</div>
+                        <div class="dt-media-grid">
+                            <t t-foreach="entry.get_media_items()" t-as="media">
+                                <div class="dt-media-tile">
+                                    <t t-if="media.media_type == 'image'">
+                                        <img t-att-src="media.image_url()" alt="receipt"/>
+                                    </t>
+                                    <t t-else="">
+                                        <video playsinline="playsinline" preload="metadata">
+                                            <source t-att-src="media.stream_url()" t-att-type="media.mimetype or 'video/mp4'"/>
+                                        </video>
+                                    </t>
+                                    <form t-att-action="'/my/apps/expenses/media/%s/delete' % media.id" method="post" class="position-absolute" style="top:8px;right:8px;">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <input type="hidden" name="entry_id" t-att-value="entry.id"/>
+                                        <button type="submit" class="dt-btn dt-btn--ghost" style="padding:6px 10px;">✕</button>
+                                    </form>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                </t>
+            </section>
+        </t>
+    </template>
+
+    <template id="portal_expense_categories" name="Family Expense Categories">
+        <t t-call="dt_core.portal_shell">
+            <section class="dt-section">
+                <form action="/my/apps/expenses/categories/save" method="post" class="dt-form dt-card p-3">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <label class="dt-field">
+                        <span>Tên danh mục</span>
+                        <input type="text" name="name" placeholder="Ví dụ: Ăn uống, Lương, Thưởng..." required="required"/>
+                    </label>
+                    <label class="dt-field">
+                        <span>Thuộc nhóm</span>
+                        <select name="category_type">
+                            <option value="expense">Chi tiêu</option>
+                            <option value="income">Thu nhập</option>
+                        </select>
+                    </label>
+                    <label class="dt-field">
+                        <span>Phạm vi</span>
+                        <select name="scope">
+                            <option value="shared">Dùng chung</option>
+                            <option value="private">Riêng tôi</option>
+                        </select>
+                    </label>
+                    <label class="dt-field">
+                        <span>Icon</span>
+                        <input type="text" name="icon" value="💸" placeholder="Ví dụ: 🍜, 💰, 📚"/>
+                    </label>
+                    <label class="dt-field">
+                        <span>Thứ tự</span>
+                        <input type="number" name="sequence" value="10"/>
+                    </label>
+                    <label class="dt-field">
+                        <span>Ghi chú</span>
+                        <input type="text" name="note" placeholder="Tùy chọn"/>
+                    </label>
+                    <button type="submit" class="dt-btn dt-btn--primary">Thêm danh mục</button>
+                </form>
+
+                <div class="dt-list">
+                    <t t-if="categories">
+                        <t t-foreach="categories" t-as="cat">
+                            <div class="dt-category-row">
+                                <div class="dt-entry-head">
+                                    <div>
+                                        <div class="dt-entry-title"><t t-esc="cat.icon or '💸'"/> <t t-esc="cat.name"/></div>
+                                        <div class="dt-entry-meta">
+                                            <span class="dt-tag">#<t t-esc="cat.code"/></span>
+                                            <span class="dt-tag"><t t-esc="cat.get_category_type_label()"/></span>
+                                            <span class="dt-tag"><t t-esc="cat.get_scope_label()"/></span>
+                                            <span class="dt-tag"><t t-esc="cat.entry_count"/> giao dịch</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div t-if="cat.note" class="dt-entry-note"><t t-esc="cat.note"/></div>
+                            </div>
+                        </t>
+                    </t>
+                    <t t-else=""><div class="dt-empty-state">Chưa có danh mục nào.</div></t>
+                </div>
+            </section>
+        </t>
+    </template>
+
+    <template id="portal_expense_reports" name="Family Expense Reports">
+        <t t-call="dt_core.portal_shell">
+            <section class="dt-section">
+                <form method="get" action="/my/apps/expenses/reports" class="dt-form dt-card p-3">
+                    <label class="dt-field">
+                        <span>Kiểu kỳ báo cáo</span>
+                        <select name="period">
+                            <option value="week" t-att-selected="'selected' if period == 'week' else None">Tuần</option>
+                            <option value="month" t-att-selected="'selected' if period == 'month' else None">Tháng</option>
+                            <option value="year" t-att-selected="'selected' if period == 'year' else None">Năm</option>
+                        </select>
+                    </label>
+                    <label class="dt-field">
+                        <span>Mốc ngày</span>
+                        <input type="date" name="anchor_date" t-att-value="anchor_date"/>
+                    </label>
+                    <label class="dt-field">
+                        <span>Phạm vi dữ liệu</span>
+                        <select name="view_scope">
+                            <option value="mine" t-att-selected="'selected' if view_scope == 'mine' else None">Chỉ của tôi</option>
+                            <option value="family" t-att-selected="'selected' if view_scope == 'family' else None">Có thể xem trong gia đình / công ty</option>
+                        </select>
+                    </label>
+                    <label class="dt-field">
+                        <span>Lọc theo loại giao dịch</span>
+                        <select name="entry_type">
+                            <option value="" t-att-selected="'selected' if not selected_entry_type else None">Tất cả</option>
+                            <option value="expense" t-att-selected="'selected' if selected_entry_type == 'expense' else None">Chi tiêu</option>
+                            <option value="income" t-att-selected="'selected' if selected_entry_type == 'income' else None">Thu nhập</option>
+                            <option value="adjustment" t-att-selected="'selected' if selected_entry_type == 'adjustment' else None">Điều chỉnh</option>
+                        </select>
+                    </label>
+                    <label class="dt-field">
+                        <span>Lọc theo danh mục</span>
+                        <select name="category_id">
+                            <option value="">Tất cả</option>
+                            <t t-foreach="categories" t-as="cat">
+                                <option t-att-value="cat.id" t-att-selected="'selected' if selected_category and selected_category.id == cat.id else None"><t t-esc="cat.icon or '💸'"/> <t t-esc="cat.name"/></option>
+                            </t>
+                        </select>
+                    </label>
+                    <button type="submit" class="dt-btn dt-btn--secondary">Xem báo cáo</button>
+                </form>
+
+                <div class="dt-summary-grid">
+                    <div class="dt-stat-card">
+                        <div class="dt-stat-card__value"><t t-esc="income_total_label"/></div>
+                        <div class="dt-stat-card__label">Tổng thu trong kỳ</div>
+                    </div>
+                    <div class="dt-stat-card">
+                        <div class="dt-stat-card__value"><t t-esc="expense_total_label"/></div>
+                        <div class="dt-stat-card__label">Tổng chi trong kỳ</div>
+                    </div>
+                    <div class="dt-stat-card">
+                        <div class="dt-stat-card__value"><t t-esc="adjustment_total_label"/></div>
+                        <div class="dt-stat-card__label">Điều chỉnh trong kỳ</div>
+                    </div>
+                    <div class="dt-stat-card">
+                        <div class="dt-stat-card__value"><t t-esc="net_total_label"/></div>
+                        <div class="dt-stat-card__label">Ròng trong kỳ</div>
+                    </div>
+                </div>
+
+                <div class="dt-report-block">
+                    <div class="dt-section-title">Theo danh mục</div>
+                    <t t-if="category_bars">
+                        <t t-foreach="category_bars" t-as="row">
+                            <div class="dt-report-row">
+                                <div class="dt-entry-head">
+                                    <div class="dt-entry-note"><t t-esc="row['label']"/></div>
+                                    <div class="dt-entry-note"><t t-esc="row['amount_label']"/></div>
+                                </div>
+                                <div class="dt-bar-track"><div class="dt-bar-fill" t-attf-style="width: #{row['ratio']}%;"></div></div>
+                            </div>
+                        </t>
+                    </t>
+                    <t t-else=""><div class="dt-empty-state">Chưa có dữ liệu cho bộ lọc này.</div></t>
+                </div>
+
+                <div class="dt-report-block">
+                    <div class="dt-section-title">Biến động theo thời gian</div>
+                    <t t-if="trend_bars">
+                        <t t-foreach="trend_bars" t-as="row">
+                            <div class="dt-report-row">
+                                <div class="dt-entry-head">
+                                    <div class="dt-entry-note"><t t-esc="row['label']"/></div>
+                                    <div class="dt-entry-note"><t t-esc="row['amount_label']"/></div>
+                                </div>
+                                <div class="dt-bar-track"><div class="dt-bar-fill" t-attf-style="width: #{row['ratio']}%;"></div></div>
+                            </div>
+                        </t>
+                    </t>
+                    <t t-else=""><div class="dt-empty-state">Chưa có dữ liệu để vẽ xu hướng.</div></t>
+                </div>
+
+                <div class="dt-report-block">
+                    <div class="dt-section-title">Danh sách giao dịch</div>
+                    <div class="dt-list">
+                        <t t-if="entries">
+                            <t t-foreach="entries" t-as="entry">
+                                <div class="dt-entry-row">
+                                    <div class="dt-entry-head">
+                                        <div>
+                                            <div class="dt-entry-title"><t t-esc="entry.get_icon()"/> <t t-esc="entry.name or entry.category_id.name or entry.get_entry_type_label()"/></div>
+                                            <div class="dt-entry-meta">
+                                                <span class="dt-tag"><t t-esc="entry.expense_date.strftime('%d/%m/%Y') if entry.expense_date else ''"/></span>
+                                                <span class="dt-tag">#<t t-esc="entry.code"/></span>
+                                                <span class="dt-tag"><t t-esc="entry.get_entry_type_label()"/></span>
+                                                <span class="dt-tag"><t t-esc="entry.get_privacy_label()"/></span>
+                                                <span class="dt-tag" t-if="entry.partner_id"><t t-esc="entry.partner_id.name"/></span>
+                                            </div>
+                                        </div>
+                                        <div t-att-class="'dt-entry-title %s' % (entry.amount_css_class or '')"><t t-esc="entry.amount_label"/></div>
+                                    </div>
+                                    <div t-if="entry.note" class="dt-entry-note"><t t-esc="entry.note"/></div>
+                                </div>
+                            </t>
+                        </t>
+                        <t t-else=""><div class="dt-empty-state">Không có giao dịch nào trong kỳ này.</div></t>
+                    </div>
+                </div>
+            </section>
+        </t>
+    </template>
 </odoo>

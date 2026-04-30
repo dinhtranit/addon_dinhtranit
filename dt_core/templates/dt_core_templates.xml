@@ -1,113 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-	<template id="portal_shell" name="Family Portal Shell">
-		<t t-call="website.layout">
-			<t t-set="no_footer" t-value="1"/>
-			<div class="dt-shell" t-att-data-page="page_name or 'apps'">
-				<header class="dt-topbar">
-					<a t-if="back_url" t-att-href="back_url" class="dt-back-btn" aria-label="Quay lại">←</a>
-					<div class="dt-topbar__center">
-						<div class="dt-page-title">
-							<t t-esc="page_title or 'Family'"/>
-						</div>
-						<div t-if="page_subtitle" class="dt-page-subtitle">
-							<t t-esc="page_subtitle"/>
-						</div>
-					</div>
-					<a href="/my/profile" class="dt-avatar-link" aria-label="Trang cá nhân">
-						<img t-attf-src="/web/image/res.partner/#{request.env.user.partner_id.id}/avatar_128" alt="avatar"/>
-					</a>
-				</header>
-				<main class="dt-main-content">
-					<t t-out="0"/>
-				</main>
-				<nav class="dt-bottom-nav">
-					<a href="/my/apps" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'apps' else ''}">
-						<span>⌂</span>
-						<small>Apps</small>
-					</a>
-					<a href="/my/apps/memories" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'memories' else ''}">
-						<span>🕒</span>
-						<small>Memories</small>
-					</a>
-					<a href="/my/apps/expenses" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'expenses' else ''}">
-						<span>💸</span>
-						<small>Expense</small>
-					</a>
-					<a href="/my/profile" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'profile' else ''}">
-						<span>👤</span>
-						<small>Tôi</small>
-					</a>
-				</nav>
-			</div>
-		</t>
-	</template>
-	<template id="portal_apps_home" name="Family Apps Home">
-		<t t-call="dt_core.portal_shell">
-			<section class="dt-section">
-				<div class="dt-app-grid">
-					<t t-foreach="app_cards" t-as="app">
-						<a t-att-href="app.route" class="dt-app-card">
-							<div class="dt-app-card__icon">
-								<t t-esc="app.icon or '📱'"/>
-							</div>
-							<div class="dt-app-card__content">
-								<div class="dt-app-card__name">
-									<t t-esc="app.name"/>
-								</div>
-								<div class="dt-app-card__desc">
-									<t t-esc="app.description or ''"/>
-								</div>
-							</div>
-							<div class="dt-app-card__arrow">›</div>
-						</a>
-					</t>
-				</div>
-			</section>
-		</t>
-	</template>
-	<template id="portal_profile" name="Family Profile">
-		<t t-call="dt_core.portal_shell">
-			<section class="dt-section">
-				<div class="dt-profile-card">
-					<div class="dt-profile-card__head">
-						<img t-attf-src="/web/image/res.partner/#{profile_partner.id}/avatar_128" alt="avatar" class="dt-profile-card__avatar"/>
-						<div>
-							<div class="dt-profile-card__name">
-								<t t-esc="profile_partner.name"/>
-							</div>
-							<div class="dt-profile-card__meta">Mã thành viên: 
-								<strong>
-									<t t-esc="profile_partner.dt_member_code or '-'"/>
-								</strong>
-							</div>
-						</div>
-					</div>
-					<form action="/my/profile/save" method="post" class="dt-form">
-						<input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-						<label class="dt-field">
-							<span>Họ tên</span>
-							<input type="text" name="name" t-att-value="profile_partner.name or ''" required="required"/>
-						</label>
-						<label class="dt-field">
-							<span>Số điện thoại</span>
-							<input type="text" name="phone" t-att-value="profile_partner.phone or ''"/>
-						</label>
-						<label class="dt-field">
-							<span>Giới thiệu ngắn</span>
-							<textarea name="bio" rows="4">
-								<t t-esc="profile_partner.dt_bio or ''"/>
-							</textarea>
-						</label>
-						<button type="submit" class="dt-btn dt-btn--primary">Lưu thông tin</button>
-					</form>
-					<div class="dt-link-stack">
-						<a href="/my/apps/memories" class="dt-inline-link">Xem memories</a>
-						<a href="/my/apps/memories/new" class="dt-inline-link">Tạo memory mới</a>
-						<a href="/my/apps/expenses/new" class="dt-inline-link">Tạo khoản chi mới</a>
-					</div>
-				</div>
-			</section>
-		</t>
-	</template>
+    <template id="portal_shell" name="Family Portal Shell">
+        <t t-call="website.layout">
+            <t t-set="no_footer" t-value="1"/>
+            <div class="dt-shell" t-att-data-page="page_name or 'apps'">
+                <header class="dt-topbar">
+                    <a t-if="back_url" t-att-href="back_url" class="dt-back-btn" aria-label="Quay lại">←</a>
+                    <div class="dt-topbar__center">
+                        <div class="dt-page-title">
+                            <t t-esc="page_title or 'Family'"/>
+                        </div>
+                        <div t-if="page_subtitle" class="dt-page-subtitle">
+                            <t t-esc="page_subtitle"/>
+                        </div>
+                    </div>
+                    <a href="/my/profile" class="dt-avatar-link" aria-label="Trang cá nhân">
+                        <img t-attf-src="/web/image/res.partner/#{request.env.user.partner_id.id}/avatar_128" alt="avatar"/>
+                    </a>
+                </header>
+                <main class="dt-main-content">
+                    <t t-out="0"/>
+                </main>
+                <nav class="dt-bottom-nav">
+                    <a href="/my/apps" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'apps' else ''}">
+                        <span>⌂</span>
+                        <small>Apps</small>
+                    </a>
+                    <a href="/my/apps/memories" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'memories' else ''}">
+                        <span>🕒</span>
+                        <small>Memories</small>
+                    </a>
+                    <a href="/my/apps/expenses" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'expenses' else ''}">
+                        <span>💸</span>
+                        <small>Expense</small>
+                    </a>
+                    <a href="/my/profile" t-attf-class="dt-bottom-nav__item #{'is-active' if page_name == 'profile' else ''}">
+                        <span>👤</span>
+                        <small>Tôi</small>
+                    </a>
+                </nav>
+            </div>
+        </t>
+    </template>
+
+    <template id="portal_apps_home" name="Family Apps Home">
+        <t t-call="dt_core.portal_shell">
+            <section class="dt-section">
+                <div class="dt-app-grid">
+                    <t t-foreach="app_cards" t-as="app">
+                        <a t-att-href="app.route" class="dt-app-card">
+                            <div class="dt-app-card__icon">
+                                <t t-esc="app.icon or '📱'"/>
+                            </div>
+                            <div class="dt-app-card__content">
+                                <div class="dt-app-card__name">
+                                    <t t-esc="app.name"/>
+                                </div>
+                                <div class="dt-app-card__desc">
+                                    <t t-esc="app.description or ''"/>
+                                </div>
+                            </div>
+                            <div class="dt-app-card__arrow">›</div>
+                        </a>
+                    </t>
+                </div>
+            </section>
+        </t>
+    </template>
+
+    <template id="portal_profile" name="Family Profile">
+        <t t-call="dt_core.portal_shell">
+            <section class="dt-section">
+                <div class="dt-profile-card">
+                    <div class="dt-profile-card__head">
+                        <img t-attf-src="/web/image/res.partner/#{profile_partner.id}/avatar_128" alt="avatar" class="dt-profile-card__avatar"/>
+                        <div>
+                            <div class="dt-profile-card__name">
+                                <t t-esc="profile_partner.name"/>
+                            </div>
+                            <div class="dt-profile-card__meta">Mã thành viên:
+                                <strong>
+                                    <t t-esc="profile_partner.dt_member_code or '-'"/>
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                    <form action="/my/profile/save" method="post" enctype="multipart/form-data" class="dt-form">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <label class="dt-field">
+                            <span>Đổi ảnh đại diện</span>
+                            <input type="file" name="avatar_file" accept="image/*"/>
+                            <div class="dt-file-help">Chọn ảnh mới để cập nhật avatar ở thanh trên và trang cá nhân.</div>
+                        </label>
+                        <label class="dt-field">
+                            <span>Họ tên</span>
+                            <input type="text" name="name" t-att-value="profile_partner.name or ''" required="required"/>
+                        </label>
+                        <label class="dt-field">
+                            <span>Số điện thoại</span>
+                            <input type="text" name="phone" t-att-value="profile_partner.phone or ''"/>
+                        </label>
+                        <label class="dt-field">
+                            <span>Giới thiệu ngắn</span>
+                            <textarea name="bio" rows="4"><t t-esc="profile_partner.dt_bio or ''"/></textarea>
+                        </label>
+                        <div class="dt-action-stack">
+                            <button type="submit" class="dt-btn dt-btn--primary">Lưu thông tin</button>
+                            <a href="/my/profile/logout" class="dt-btn dt-btn--ghost">Đăng xuất</a>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </t>
+    </template>
 </odoo>

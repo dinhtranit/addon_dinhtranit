@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import base64
+
 from odoo import http
 from odoo.http import request
 
@@ -32,7 +34,7 @@ class FamilyPortalCore(http.Controller):
         return request.render("dt_core.portal_profile", self._base_values(
             page_name="profile",
             page_title="Trang cá nhân",
-            page_subtitle="Cập nhật nhanh thông tin cá nhân và mã thành viên.",
+            page_subtitle="Cập nhật nhanh thông tin, ảnh đại diện và đăng xuất.",
             profile_partner=user.partner_id,
             back_url="/my/apps",
         ))
@@ -40,11 +42,27 @@ class FamilyPortalCore(http.Controller):
     @http.route("/my/profile/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def save_profile(self, name="", phone="", bio="", **kw):
         user = request.env.user
+        partner = user.partner_id.sudo()
         clean_name = (name or "").strip() or user.name
         user.sudo().write({"name": clean_name})
-        user.partner_id.sudo().write({
+        partner_vals = {
             "name": clean_name,
             "phone": (phone or "").strip(),
             "dt_bio": (bio or "").strip(),
-        })
+        }
+        avatar_file = request.httprequest.files.get("avatar_file")
+        if avatar_file:
+            content = avatar_file.read()
+            if content:
+                encoded = base64.b64encode(content)
+                if "image_1920" in partner._fields:
+                    partner_vals["image_1920"] = encoded
+                elif "avatar_1920" in partner._fields:
+                    partner_vals["avatar_1920"] = encoded
+        partner.write(partner_vals)
         return request.redirect("/my/profile")
+
+    @http.route("/my/profile/logout", type="http", auth="user", website=True)
+    def profile_logout(self, **kw):
+        request.session.logout()
+        return request.redirect("/web/login")

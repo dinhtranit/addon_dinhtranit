@@ -389,3 +389,68 @@
         grid-template-columns: repeat(2, minmax(0, 1fr))
     }
 }
+.dt-profile-card__head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.dt-profile-card__meta {
+    color: var(--dt-muted);
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.dt-action-stack {
+    display: grid;
+    gap: 10px;
+}
+
+.dt-form-inline {
+    display: grid;
+    gap: 12px;
+}
+
+.dt-form-inline__grow {
+    min-width: 0;
+}
+
+.dt-money-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.dt-money-suggestion {
+    border: 1px solid var(--dt-line);
+    background: #f3f6fb;
+    color: var(--dt-text);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.dt-money-suggestion:hover,
+.dt-money-suggestion:focus {
+    background: #eef3ff;
+    color: var(--dt-primary);
+}
+
+.dt-amount-positive {
+    color: #117a38;
+}
+
+.dt-amount-negative {
+    color: #c0382b;
+}
+
+@media (min-width: 700px) {
+    .dt-form-inline {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+    }
+}

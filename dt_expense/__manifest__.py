@@ -13,7 +13,13 @@
         "views/dt_expense_backend_views.xml",
         "templates/dt_expense_templates.xml",
     ],
-    "assets": {"web.assets_frontend": ["dt_expense/static/src/css/dt_expense_portal.scss"]},
+    "assets": {
+        "web.assets_frontend": [
+            "dt_expense/static/src/css/dt_expense_portal.scss",
+            "dt_expense/static/src/js/dt_expense_form.js",
+        ],
+    },
+    "post_init_hook": "post_init_hook",
     "application": True,
     "installable": True,
 }
