@@ -1,10 +1,17 @@
-# Family modules package
+# addon_dinhtranit
 
-Tài liệu điểm vào nhanh cho toàn bộ gói module nằm ở `PROJECT_MODULES_OVERVIEW.md`.
+Bộ module portal Family do Dinh Tran IT phát triển.
 
-Các module chính:
-- `dt_core`: shell portal, profile, media dùng chung, asset dùng lại
-- `dt_expense`: app thu chi, số dư hiện tại, báo cáo, danh mục thu/chi
-- `dt_memoire`: app timeline memories
+## Trọng tâm hiện tại
+Đợt chỉnh sửa này tập trung chính vào `dt_expense` để app tài chính gọn hơn, nhập nhanh hơn và bớt rối:
+- bỏ vai trò màn `my/apps`
+- card số dư bấm mới chỉnh
+- danh mục hiển thị kiểu list trước, form sau
+- có gợi ý tiêu đề theo danh mục
+- có học từ lịch sử tiêu đề
 
-Đây là gói mã đã được chỉnh theo scope hiện tại: thêm logout trong profile, thêm avatar upload, mở rộng app chi tiêu thành thu/chi/điều chỉnh số dư, dùng VND cho record mới và có input tiền gợi ý nhanh.
+## Module docs
+- `PROJECT_MODULES_OVERVIEW.md`
+- `dt_core/MODULE_GUIDE.md`
+- `dt_expense/MODULE_GUIDE.md`
+- `dt_memoire/MODULE_GUIDE.md`

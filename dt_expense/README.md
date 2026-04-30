@@ -1,17 +1,14 @@
 # dt_expense
 
-App thu chi cá nhân/gia đình trên portal.
+Portal thu chi mobile-first cho Family modules.
 
-Đọc nhanh:
-- `MODULE_GUIDE.md`: mô tả chi tiết nghiệp vụ, route, field, migration hook
-- `models/dt_expense_entry.py`: logic giao dịch, số dư, VND, helper format/parse
-- `models/dt_expense_category.py`: danh mục thu/chi dùng chung hoặc riêng
-- `controllers/portal.py`: dashboard, form, báo cáo, danh mục
-- `hooks.py`: normalize dữ liệu cũ khi update module
+## Điểm nổi bật hiện tại
+- VND, không hỗ trợ phần lẻ
+- giao dịch thu / chi / điều chỉnh
+- số dư hiện tại tính từ lịch sử giao dịch
+- danh mục dùng chung hoặc riêng
+- gợi ý tiêu đề nhập nhanh theo danh mục
+- học thêm từ lịch sử tiêu đề đã dùng
+- báo cáo theo tuần / tháng / năm
 
-Các thay đổi chính ở đợt này:
-- thêm thu nhập và điều chỉnh số dư
-- thêm nơi nhập số tiền hiện tại
-- thêm privacy private/public trong gia đình-công ty
-- record mới mặc định VND, không cho số lẻ
-- thêm input tiền có gợi ý bấm nhanh 1.000 / 10.000 / 100.000 / 1.000.000
+Đọc chi tiết trong `MODULE_GUIDE.md`.

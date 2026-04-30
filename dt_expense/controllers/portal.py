@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+import json
 from calendar import monthrange
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
 from odoo import fields, http
 from odoo.addons.portal.controllers.portal import pager as portal_pager
-from odoo.http import request
+from odoo.http import request, Response
 
 
 class FamilyExpensePortal(http.Controller):
@@ -17,7 +18,7 @@ class FamilyExpensePortal(http.Controller):
             "page_name": extra.get("page_name", "expenses"),
             "page_title": extra.get("page_title", "Family Expense"),
             "page_subtitle": extra.get("page_subtitle", ""),
-            "back_url": extra.get("back_url", "/my/apps"),
+            "back_url": extra.get("back_url", "/my/apps/expenses"),
         }
         values.update(extra)
         return values
@@ -27,6 +28,9 @@ class FamilyExpensePortal(http.Controller):
 
     def _category_model(self):
         return request.env["dt.expense.category"]
+
+    def _suggestion_model(self):
+        return request.env["dt.expense.title.suggestion"]
 
     def _my_entry_domain(self, user):
         return [("user_id", "=", user.id)]
@@ -177,7 +181,11 @@ class FamilyExpensePortal(http.Controller):
         page_title, page_subtitle = page_title_map.get(current_entry_type, page_title_map["expense"])
         if entry:
             page_title = f"Sửa {entry.get_entry_type_label().lower()}"
-            page_subtitle = "Cập nhật tiền, quyền xem, danh mục và file đính kèm."
+            page_subtitle = "Cập nhật tiền, quyền xem, danh mục, gợi ý tiêu đề và file đính kèm."
+        selected_category = entry.category_id if entry else False
+        initial_suggestions = []
+        if selected_category:
+            initial_suggestions = self._suggestion_model().suggestions_for_portal(selected_category, user=user, query=entry.name or "", limit=8)
         return self._base_values(
             page_title=page_title,
             page_subtitle=page_subtitle,
@@ -188,6 +196,7 @@ class FamilyExpensePortal(http.Controller):
             default_date=(entry.expense_date.isoformat() if entry and entry.expense_date else date.today().isoformat()),
             amount_input_value=(entry_model.format_amount_for_input(entry.amount) if entry else ""),
             back_url="/my/apps/expenses",
+            initial_suggestions=initial_suggestions,
         )
 
     @http.route("/my/apps/expenses", type="http", auth="user", website=True)
@@ -256,7 +265,7 @@ class FamilyExpensePortal(http.Controller):
         else:
             category_record_id = self._safe_int(category_id)
             category = self._category_model().browse(category_record_id) if category_record_id else self._category_model().browse()
-            if not category.exists() or category.category_type != entry_type or not (category.scope == "shared" or category.user_id == user):
+            if not category.exists() or category.category_type != entry_type or not category.can_access(user=user):
                 return request.redirect(f"/my/apps/expenses/new?entry_type={entry_type}")
             vals["category_id"] = category.id
         if entry_id:
@@ -308,9 +317,11 @@ class FamilyExpensePortal(http.Controller):
         categories = self._category_model().search(self._category_domain(user), order="category_type, sequence, id")
         return request.render("dt_expense.portal_expense_categories", self._base_values(
             page_title="Danh mục thu chi",
-            page_subtitle="Tạo danh mục thu nhập hoặc chi tiêu, dùng chung hoặc riêng.",
+            page_subtitle="Quản lý danh mục, quyền sửa và các gợi ý tiêu đề nhập nhanh.",
             categories=categories,
             back_url="/my/apps/expenses",
+            category_type_options=self._category_model()._fields["category_type"].selection,
+            scope_options=self._category_model()._fields["scope"].selection,
         ))
 
     @http.route("/my/apps/expenses/categories/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
@@ -318,10 +329,7 @@ class FamilyExpensePortal(http.Controller):
         user = request.env.user
         category_type = category_type if category_type in ("expense", "income") else "expense"
         scope = scope if scope in ("shared", "private") else "shared"
-        try:
-            sequence_value = int(sequence or 10)
-        except ValueError:
-            sequence_value = 10
+        sequence_value = self._safe_int(sequence, default=10)
         default_icon = "💰" if category_type == "income" else "💸"
         vals = {
             "name": (name or "").strip() or "Danh mục mới",
@@ -336,11 +344,73 @@ class FamilyExpensePortal(http.Controller):
         if category_id:
             category_record_id = self._safe_int(category_id)
             category = category_model.browse(category_record_id) if category_record_id else category_model.browse()
-            if category.exists() and (category.scope == "shared" or category.user_id == user):
+            if category.exists() and category.can_manage(user=user):
                 category.write(vals)
         else:
             category_model.create(vals)
         return request.redirect("/my/apps/expenses/categories")
+
+    @http.route("/my/apps/expenses/categories/<int:category_id>/delete", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def expense_categories_delete(self, category_id, **kw):
+        category = self._category_model().browse(category_id)
+        if category.exists() and category.can_manage(user=request.env.user):
+            if category.entry_count:
+                category.write({"active": False})
+            else:
+                category.unlink()
+        return request.redirect("/my/apps/expenses/categories")
+
+    @http.route("/my/apps/expenses/categories/<int:category_id>/suggestions/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def expense_category_suggestion_save(self, category_id, suggestion_id=None, name="", sequence="10", **kw):
+        user = request.env.user
+        category = self._category_model().browse(category_id)
+        if not category.exists() or not category.can_manage(user=user):
+            return request.redirect("/my/apps/expenses/categories")
+        vals = {
+            "name": (name or "").strip(),
+            "sequence": self._safe_int(sequence, default=10),
+            "category_id": category.id,
+            "is_manual": True,
+            "active": True,
+        }
+        if not vals["name"]:
+            return request.redirect("/my/apps/expenses/categories")
+        suggestion_model = self._suggestion_model()
+        existing = suggestion_model.search([
+            ("category_id", "=", category.id),
+            ("normalized_name", "=", suggestion_model._normalize_name(vals["name"])),
+        ], limit=1)
+        if suggestion_id:
+            record = suggestion_model.browse(self._safe_int(suggestion_id))
+            if record.exists() and record.category_id == category and category.can_manage(user=user):
+                if existing and existing != record:
+                    existing.write({"sequence": vals["sequence"], "active": True, "is_manual": True})
+                    record.unlink()
+                else:
+                    record.write(vals)
+        else:
+            if existing:
+                existing.write({"sequence": vals["sequence"], "active": True, "is_manual": True, "name": vals["name"]})
+            else:
+                suggestion_model.create(vals)
+        return request.redirect("/my/apps/expenses/categories")
+
+    @http.route("/my/apps/expenses/categories/<int:category_id>/suggestions/<int:suggestion_id>/delete", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def expense_category_suggestion_delete(self, category_id, suggestion_id, **kw):
+        user = request.env.user
+        category = self._category_model().browse(category_id)
+        suggestion = self._suggestion_model().browse(suggestion_id)
+        if category.exists() and suggestion.exists() and suggestion.category_id == category and category.can_manage(user=user):
+            suggestion.unlink()
+        return request.redirect("/my/apps/expenses/categories")
+
+    @http.route("/my/apps/expenses/title-suggestions", type="http", auth="user", website=True)
+    def expense_title_suggestions(self, category_id=None, q="", limit="8", **kw):
+        user = request.env.user
+        category = self._category_model().browse(self._safe_int(category_id)) if category_id else self._category_model().browse()
+        rows = self._suggestion_model().suggestions_for_portal(category, user=user, query=q, limit=self._safe_int(limit, default=8) or 8) if category else []
+        payload = json.dumps({"items": rows})
+        return Response(payload, content_type="application/json;charset=utf-8")
 
     @http.route("/my/apps/expenses/reports", type="http", auth="user", website=True)
     def expense_reports(self, period="month", anchor_date="", category_id="", entry_type="", view_scope="mine", **kw):
@@ -379,6 +449,6 @@ class FamilyExpensePortal(http.Controller):
             expense_total_label=self._format_money(expense_total),
             adjustment_total_label=self._format_money(adjustment_total, show_plus=True),
             net_total_label=self._format_money(net_total, show_plus=True),
-            category_bars=self._build_category_bars(entries.filtered(lambda entry: entry.category_id)),
+            category_bars=self._build_category_bars(entries),
             trend_bars=self._build_trend_bars(entries, period, start, end),
         ))

@@ -72,3 +72,17 @@ class FamilyExpenseCategory(models.Model):
     def get_category_type_label(self):
         self.ensure_one()
         return dict(self._fields["category_type"].selection).get(self.category_type or "expense", "Chi tiêu")
+
+    def can_access(self, user=None):
+        self.ensure_one()
+        user = user or self.env.user
+        return bool(self.scope == "shared" or self.user_id == user)
+
+    def can_manage(self, user=None):
+        self.ensure_one()
+        user = user or self.env.user
+        return bool(user.has_group("base.group_system") or self.create_uid == user)
+
+    def get_suggestions(self):
+        self.ensure_one()
+        return self.env["dt.expense.title.suggestion"].search([("category_id", "=", self.id)], order="sequence, is_manual desc, usage_count desc, id desc")

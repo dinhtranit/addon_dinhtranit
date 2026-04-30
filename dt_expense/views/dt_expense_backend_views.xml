@@ -50,9 +50,7 @@
                             <field name="active"/>
                         </group>
                     </group>
-                    <group>
-                        <field name="note"/>
-                    </group>
+                    <group><field name="note"/></group>
                 </sheet>
             </form>
         </field>
@@ -109,7 +107,50 @@
         <field name="view_mode">list,form</field>
     </record>
 
+    <record id="view_dt_expense_title_suggestion_tree" model="ir.ui.view">
+        <field name="name">dt.expense.title.suggestion.tree</field>
+        <field name="model">dt.expense.title.suggestion</field>
+        <field name="arch" type="xml">
+            <list string="Expense Title Suggestions">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="category_id"/>
+                <field name="is_manual"/>
+                <field name="usage_count"/>
+                <field name="last_used_at"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dt_expense_title_suggestion_form" model="ir.ui.view">
+        <field name="name">dt.expense.title.suggestion.form</field>
+        <field name="model">dt.expense.title.suggestion</field>
+        <field name="arch" type="xml">
+            <form string="Expense Title Suggestion">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="category_id"/>
+                        <field name="sequence"/>
+                        <field name="is_manual"/>
+                        <field name="usage_count" readonly="1"/>
+                        <field name="last_used_at" readonly="1"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dt_expense_title_suggestion" model="ir.actions.act_window">
+        <field name="name">Gợi ý tiêu đề</field>
+        <field name="res_model">dt.expense.title.suggestion</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
     <menuitem id="menu_dt_expense_root" name="Family Expense" parent="dt_core.menu_dt_root" sequence="30"/>
     <menuitem id="menu_dt_expense_entry" name="Giao dịch" parent="menu_dt_expense_root" action="action_dt_expense_entry" sequence="10"/>
     <menuitem id="menu_dt_expense_category" name="Danh mục" parent="menu_dt_expense_root" action="action_dt_expense_category" sequence="20"/>
+    <menuitem id="menu_dt_expense_title_suggestion" name="Gợi ý tiêu đề" parent="menu_dt_expense_root" action="action_dt_expense_title_suggestion" sequence="30"/>
 </odoo>

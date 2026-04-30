@@ -13,7 +13,7 @@ class FamilyPortalCore(http.Controller):
             "app_cards": apps,
             "current_user": request.env.user,
             "page_name": extra.get("page_name", "apps"),
-            "page_title": extra.get("page_title", "Family Apps"),
+            "page_title": extra.get("page_title", "Family"),
             "page_subtitle": extra.get("page_subtitle", ""),
             "back_url": extra.get("back_url", ""),
         }
@@ -22,11 +22,7 @@ class FamilyPortalCore(http.Controller):
 
     @http.route(["/my/apps", "/dt/apps"], type="http", auth="user", website=True)
     def apps_home(self, **kw):
-        return request.render("dt_core.portal_apps_home", self._base_values(
-            page_name="apps",
-            page_title="Family Apps",
-            page_subtitle="Chọn app để vào đúng chức năng trên điện thoại.",
-        ))
+        return request.redirect("/my/apps/expenses")
 
     @http.route("/my/profile", type="http", auth="user", website=True)
     def my_profile(self, **kw):
@@ -36,7 +32,7 @@ class FamilyPortalCore(http.Controller):
             page_title="Trang cá nhân",
             page_subtitle="Cập nhật nhanh thông tin, ảnh đại diện và đăng xuất.",
             profile_partner=user.partner_id,
-            back_url="/my/apps",
+            back_url="/my/apps/expenses",
         ))
 
     @http.route("/my/profile/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)

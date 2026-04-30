@@ -82,13 +82,27 @@ class FamilyExpenseEntry(models.Model):
             vals.setdefault("adjustment_direction", "increase")
             vals.setdefault("currency_id", default_currency_id)
             normalized_vals_list.append(vals)
-        return super().create(normalized_vals_list)
+        records = super().create(normalized_vals_list)
+        records._touch_title_history()
+        return records
 
     def write(self, vals):
         vals = dict(vals)
         if vals.get("entry_type") and vals["entry_type"] != "adjustment":
             vals.setdefault("adjustment_direction", "increase")
-        return super().write(vals)
+        result = super().write(vals)
+        self._touch_title_history()
+        return result
+
+    def _touch_title_history(self):
+        suggestion_model = self.env["dt.expense.title.suggestion"]
+        for record in self:
+            if record.entry_type not in ("expense", "income") or not record.category_id:
+                continue
+            title = (record.name or "").strip()
+            if not title:
+                continue
+            suggestion_model.touch_history(record.category_id, title, user=record.user_id)
 
     @api.depends("name", "category_id", "expense_date", "entry_type")
     def _compute_display_name(self):
@@ -185,7 +199,7 @@ class FamilyExpenseEntry(models.Model):
         delta = target_amount - current_balance
         if not delta:
             return False
-        return self.create({
+        adjustment = self.create({
             "name": "Điều chỉnh số dư hiện tại",
             "expense_date": fields.Date.context_today(self),
             "entry_type": "adjustment",
@@ -198,6 +212,8 @@ class FamilyExpenseEntry(models.Model):
                 f"Đặt số dư từ {self._format_money(current_balance)} về {self._format_money(target_amount)}."
             ),
         })
+        return adjustment
+
 
     def get_media_items(self):
         self.ensure_one()

@@ -2,3 +2,85 @@
 .dt-category-row {
     padding: 14px;
 }
+
+.dt-stat-card--clickable {
+    cursor: pointer;
+}
+
+.dt-toggle-panel {
+    margin-top: 12px;
+}
+
+.dt-inline-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.dt-toolbar-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 16px;
+    background: #fff;
+    margin-bottom: 12px;
+}
+
+.dt-sub-form {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dt-title-suggestions,
+.dt-suggestion-admin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.dt-title-suggestions {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.dt-title-suggestion,
+.dt-money-suggestion {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: #fff;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+.dt-suggestion-admin-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-top: 1px dashed rgba(0, 0, 0, 0.08);
+}
+
+.dt-suggestion-admin-item:first-child {
+    border-top: 0;
+}
+
+.dt-inline-form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.dt-inline-form input[type="text"] {
+    min-width: 180px;
+}
+
+.dt-inline-form input[type="number"] {
+    width: 90px;
+}
