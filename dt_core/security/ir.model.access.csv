@@ -3,3 +3,5 @@ access_dt_app_user,dt.app user,model_dt_app,base.group_user,1,1,1,1
 access_dt_app_portal,dt.app portal,model_dt_app,base.group_portal,1,0,0,0
 access_dt_media_user,dt.media user,model_dt_media,base.group_user,1,1,1,1
 access_dt_media_portal,dt.media portal,model_dt_media,base.group_portal,1,1,1,1
+access_dt_family_access_user,dt.family.access user,model_dt_family_access,base.group_user,1,1,1,1
+access_dt_family_access_portal,dt.family.access portal,model_dt_family_access,base.group_portal,1,1,1,1

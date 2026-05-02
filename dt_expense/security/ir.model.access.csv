@@ -5,3 +5,5 @@ access_dt_expense_entry_user,dt.expense.entry user,model_dt_expense_entry,base.g
 access_dt_expense_entry_portal,dt.expense.entry portal,model_dt_expense_entry,base.group_portal,1,1,1,1
 access_dt_expense_title_suggestion_user,dt.expense.title.suggestion user,model_dt_expense_title_suggestion,base.group_user,1,1,1,1
 access_dt_expense_title_suggestion_portal,dt.expense.title.suggestion portal,model_dt_expense_title_suggestion,base.group_portal,1,1,1,1
+access_dt_expense_title_history_user,dt.expense.title.history user,model_dt_expense_title_history,base.group_user,1,1,1,1
+access_dt_expense_title_history_portal,dt.expense.title.history portal,model_dt_expense_title_history,base.group_portal,1,0,0,0

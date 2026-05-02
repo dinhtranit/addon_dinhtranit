@@ -15,9 +15,8 @@ class FamilyMemoirePortal(http.Controller):
         return values
 
     def _timeline_domain(self, user, mine=False, search="", category=""):
-        domain = ["|", "|", "|", ("user_id", "=", user.id), ("privacy", "=", "public"), "&", ("privacy", "=", "family"), ("user_id.company_id", "=", user.company_id.id), "&", ("privacy", "=", "shared"), ("shared_partner_ids", "in", [user.partner_id.id])]
-        if mine:
-            domain = [("user_id", "=", user.id)]
+        visible_user_ids = [user.id] if mine else user.get_visible_memory_user_ids()
+        domain = [("user_id", "in", visible_user_ids)]
         if search:
             domain += [("title", "ilike", search)]
         if category:
@@ -31,10 +30,11 @@ class FamilyMemoirePortal(http.Controller):
         mine_bool = mine in ("1", "true", "True")
         domain = self._timeline_domain(user, mine=mine_bool, search=search, category=category)
         Diary = request.env["dt.memoire.diary"]
-        total = Diary.search_count(domain)
+        visible_diaries = Diary.search(domain, order="is_pinned desc, memory_date desc, id desc").filtered(lambda diary: diary.can_view(user))
+        total = len(visible_diaries)
         pager = portal_pager(url="/my/apps/memories", total=total, page=page, step=per_page, url_args={"search": search, "category": category, "mine": "1" if mine_bool else ""})
-        diaries = Diary.search(domain, order="is_pinned desc, memory_date desc, id desc", limit=per_page, offset=pager["offset"])
-        return request.render("dt_memoire.portal_memories_feed", self._base_values(page_title="Dòng thời gian", page_subtitle="Tất cả memory bạn có quyền xem.", diaries=diaries, pager=pager, total=total, search=search, category=category, mine=mine_bool, categories=[("family", "Gia đình"), ("travel", "Du lịch"), ("birthday", "Sinh nhật"), ("daily", "Hằng ngày"), ("school", "Học tập"), ("other", "Khác")]))
+        diaries = visible_diaries[pager["offset"]:pager["offset"] + per_page]
+        return request.render("dt_memoire.portal_memories_feed", self._base_values(page_title="Dòng thời gian", page_subtitle="Tất cả memory bạn có quyền xem theo cấu hình gia đình.", diaries=diaries, pager=pager, total=total, search=search, category=category, mine=mine_bool, categories=[("family", "Gia đình"), ("travel", "Du lịch"), ("birthday", "Sinh nhật"), ("daily", "Hằng ngày"), ("school", "Học tập"), ("other", "Khác")]))
 
     @http.route("/my/apps/memories/mine", type="http", auth="user", website=True)
     def memories_mine(self, **kw):

@@ -6,20 +6,18 @@
         <field name="arch" type="xml">
             <list string="Family Expense Entries">
                 <field name="expense_date"/>
+                <field name="accounting_month"/>
                 <field name="display_name"/>
                 <field name="entry_type"/>
-                <field name="privacy"/>
                 <field name="category_id"/>
                 <field name="amount"/>
                 <field name="signed_amount"/>
-                <field name="currency_id"/>
                 <field name="user_id"/>
                 <field name="media_count"/>
                 <field name="active"/>
             </list>
         </field>
     </record>
-
     <record id="view_dt_expense_entry_form" model="ir.ui.view">
         <field name="name">dt.expense.entry.form</field>
         <field name="model">dt.expense.entry</field>
@@ -33,19 +31,17 @@
                             <field name="entry_type"/>
                             <field name="adjustment_direction"/>
                             <field name="expense_date"/>
+                            <field name="accounting_month"/>
                             <field name="category_id"/>
-                            <field name="privacy"/>
                         </group>
                         <group>
                             <field name="amount"/>
                             <field name="currency_id"/>
                             <field name="signed_amount" readonly="1"/>
-                            <field name="amount_label" readonly="1"/>
                             <field name="user_id"/>
                             <field name="company_id" readonly="1"/>
-                            <field name="expense_year" readonly="1"/>
                             <field name="expense_month_key" readonly="1"/>
-                            <field name="expense_week_key" readonly="1"/>
+                            <field name="accounting_month_key" readonly="1"/>
                             <field name="media_count" readonly="1"/>
                             <field name="active"/>
                         </group>
@@ -55,13 +51,11 @@
             </form>
         </field>
     </record>
-
     <record id="action_dt_expense_entry" model="ir.actions.act_window">
-        <field name="name">Family Expense Entries</field>
+        <field name="name">Giao dịch</field>
         <field name="res_model">dt.expense.entry</field>
         <field name="view_mode">list,form</field>
     </record>
-
     <record id="view_dt_expense_category_tree" model="ir.ui.view">
         <field name="name">dt.expense.category.tree</field>
         <field name="model">dt.expense.category</field>
@@ -71,14 +65,15 @@
                 <field name="icon"/>
                 <field name="name"/>
                 <field name="category_type"/>
-                <field name="scope"/>
+                <field name="parent_id"/>
+                <field name="is_leaf"/>
+                <field name="apply_next_month_rule"/>
                 <field name="user_id"/>
                 <field name="entry_count"/>
                 <field name="active"/>
             </list>
         </field>
     </record>
-
     <record id="view_dt_expense_category_form" model="ir.ui.view">
         <field name="name">dt.expense.category.form</field>
         <field name="model">dt.expense.category</field>
@@ -89,9 +84,10 @@
                         <field name="name"/>
                         <field name="code" readonly="1"/>
                         <field name="category_type"/>
-                        <field name="scope"/>
+                        <field name="parent_id"/>
                         <field name="icon"/>
                         <field name="sequence"/>
+                        <field name="apply_next_month_rule"/>
                         <field name="user_id"/>
                         <field name="active"/>
                         <field name="note"/>
@@ -100,57 +96,18 @@
             </form>
         </field>
     </record>
-
     <record id="action_dt_expense_category" model="ir.actions.act_window">
-        <field name="name">Family Expense Categories</field>
+        <field name="name">Danh mục</field>
         <field name="res_model">dt.expense.category</field>
         <field name="view_mode">list,form</field>
     </record>
-
-    <record id="view_dt_expense_title_suggestion_tree" model="ir.ui.view">
-        <field name="name">dt.expense.title.suggestion.tree</field>
-        <field name="model">dt.expense.title.suggestion</field>
-        <field name="arch" type="xml">
-            <list string="Expense Title Suggestions">
-                <field name="sequence" widget="handle"/>
-                <field name="name"/>
-                <field name="category_id"/>
-                <field name="is_manual"/>
-                <field name="usage_count"/>
-                <field name="last_used_at"/>
-                <field name="active"/>
-            </list>
-        </field>
-    </record>
-
-    <record id="view_dt_expense_title_suggestion_form" model="ir.ui.view">
-        <field name="name">dt.expense.title.suggestion.form</field>
-        <field name="model">dt.expense.title.suggestion</field>
-        <field name="arch" type="xml">
-            <form string="Expense Title Suggestion">
-                <sheet>
-                    <group>
-                        <field name="name"/>
-                        <field name="category_id"/>
-                        <field name="sequence"/>
-                        <field name="is_manual"/>
-                        <field name="usage_count" readonly="1"/>
-                        <field name="last_used_at" readonly="1"/>
-                        <field name="active"/>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
     <record id="action_dt_expense_title_suggestion" model="ir.actions.act_window">
         <field name="name">Gợi ý tiêu đề</field>
         <field name="res_model">dt.expense.title.suggestion</field>
         <field name="view_mode">list,form</field>
     </record>
-
     <menuitem id="menu_dt_expense_root" name="Family Expense" parent="dt_core.menu_dt_root" sequence="30"/>
     <menuitem id="menu_dt_expense_entry" name="Giao dịch" parent="menu_dt_expense_root" action="action_dt_expense_entry" sequence="10"/>
     <menuitem id="menu_dt_expense_category" name="Danh mục" parent="menu_dt_expense_root" action="action_dt_expense_category" sequence="20"/>
-    <menuitem id="menu_dt_expense_title_suggestion" name="Gợi ý tiêu đề" parent="menu_dt_expense_root" action="action_dt_expense_title_suggestion" sequence="30"/>
+    <menuitem id="menu_dt_expense_suggestion" name="Gợi ý tiêu đề" parent="menu_dt_expense_root" action="action_dt_expense_title_suggestion" sequence="30"/>
 </odoo>

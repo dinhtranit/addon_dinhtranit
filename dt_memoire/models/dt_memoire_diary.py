@@ -95,6 +95,8 @@ class DTMemoireDiary(models.Model):
         user = user or self.env.user
         if self.user_id == user:
             return True
+        if not user.can_view_memory_from(self.user_id):
+            return False
         if self.privacy == "public":
             return True
         if self.privacy == "family" and self.user_id.company_id == user.company_id:

@@ -13,94 +13,27 @@
         <field name="padding">4</field>
     </record>
     <record id="dt_app_expense" model="dt.app">
-        <field name="name">Expense</field>
+        <field name="name">Tài chính</field>
         <field name="code">expense</field>
         <field name="route">/my/apps/expenses</field>
         <field name="icon">💸</field>
-        <field name="description">Nhập thu chi, đặt số dư hiện tại và xem báo cáo theo kỳ.</field>
+        <field name="description">Quản lý số dư, giao dịch, lịch sử và thống kê chi tiết.</field>
         <field name="sequence">30</field>
         <field name="is_active">True</field>
     </record>
     <record id="dt_expense_cat_food" model="dt.expense.category">
-        <field name="name">Ăn uống</field>
-        <field name="icon">🍜</field>
-        <field name="sequence">10</field>
-        <field name="category_type">expense</field>
-        <field name="scope">shared</field>
-    </record>
-    <record id="dt_expense_cat_kids" model="dt.expense.category">
-        <field name="name">Con cái</field>
-        <field name="icon">🧒</field>
-        <field name="sequence">30</field>
-        <field name="category_type">expense</field>
-        <field name="scope">shared</field>
-    </record>
-    <record id="dt_expense_cat_transport" model="dt.expense.category">
-        <field name="name">Đi lại</field>
-        <field name="icon">🛵</field>
-        <field name="sequence">40</field>
-        <field name="category_type">expense</field>
-        <field name="scope">shared</field>
-    </record>
-    <record id="dt_expense_cat_health" model="dt.expense.category">
-        <field name="name">Y tế</field>
-        <field name="icon">💊</field>
-        <field name="sequence">50</field>
-        <field name="category_type">expense</field>
-        <field name="scope">shared</field>
-    </record>
-    <record id="dt_expense_cat_salary" model="dt.expense.category">
-        <field name="name">Lương</field>
-        <field name="icon">💸</field>
-        <field name="sequence">110</field>
-        <field name="category_type">income</field>
-        <field name="scope">shared</field>
+        <field name="name">Ăn uống</field><field name="icon">🍜</field><field name="sequence">10</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
     </record>
     <record id="dt_expense_cat_school" model="dt.expense.category">
-        <field name="name">Học hành</field>
-        <field name="icon">📚</field>
-        <field name="sequence">20</field>
-        <field name="category_type">expense</field>
-        <field name="scope">shared</field>
+        <field name="name">Học hành</field><field name="icon">📚</field><field name="sequence">20</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_transport" model="dt.expense.category">
+        <field name="name">Đi lại</field><field name="icon">🛵</field><field name="sequence">30</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_salary" model="dt.expense.category">
+        <field name="name">Lương</field><field name="icon">💼</field><field name="sequence">110</field><field name="category_type">income</field><field name="apply_next_month_rule">True</field><field name="user_id" ref="base.user_admin"/>
     </record>
     <record id="dt_expense_cat_bonus" model="dt.expense.category">
-        <field name="name">Thưởng</field>
-        <field name="icon">🎁</field>
-        <field name="sequence">120</field>
-        <field name="category_type">income</field>
-        <field name="scope">shared</field>
+        <field name="name">Thưởng</field><field name="icon">🎁</field><field name="sequence">120</field><field name="category_type">income</field><field name="user_id" ref="base.user_admin"/>
     </record>
-    <record id="dt_expense_cat_business" model="dt.expense.category">
-        <field name="name">Kinh doanh</field>
-        <field name="icon">💰</field>
-        <field name="sequence">130</field>
-        <field name="category_type">income</field>
-        <field name="scope">shared</field>
-    </record>
-
-    <record id="dt_expense_suggest_food_breakfast" model="dt.expense.title.suggestion">
-        <field name="name">Ăn sáng</field>
-        <field name="category_id" ref="dt_expense_cat_food"/>
-        <field name="sequence">10</field>
-        <field name="is_manual">True</field>
-    </record>
-    <record id="dt_expense_suggest_food_lunch" model="dt.expense.title.suggestion">
-        <field name="name">Ăn trưa</field>
-        <field name="category_id" ref="dt_expense_cat_food"/>
-        <field name="sequence">20</field>
-        <field name="is_manual">True</field>
-    </record>
-    <record id="dt_expense_suggest_food_dinner" model="dt.expense.title.suggestion">
-        <field name="name">Ăn tối</field>
-        <field name="category_id" ref="dt_expense_cat_food"/>
-        <field name="sequence">30</field>
-        <field name="is_manual">True</field>
-    </record>
-    <record id="dt_expense_suggest_salary_month" model="dt.expense.title.suggestion">
-        <field name="name">Lương tháng </field>
-        <field name="category_id" ref="dt_expense_cat_salary"/>
-        <field name="sequence">10</field>
-        <field name="is_manual">True</field>
-    </record>
-
 </odoo>

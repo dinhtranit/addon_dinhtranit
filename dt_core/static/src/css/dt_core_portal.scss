@@ -454,3 +454,19 @@
         align-items: end;
     }
 }
+
+.dt-inline-check-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.dt-check-pill input {
+    margin-right: 4px;
+}
+
+.dt-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}

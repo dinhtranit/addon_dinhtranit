@@ -1,74 +1,62 @@
-# dt_expense - Module Guide
+# Hướng dẫn module `dt_expense`
 
-## Mục tiêu hiện tại
-Module này là app sổ thu chi cá nhân/gia đình trên portal mobile-first. Người dùng có thể:
-- tạo giao dịch thu, chi, điều chỉnh
-- xem số dư hiện tại theo VND
-- quản lý danh mục thu/chi
-- cấu hình gợi ý tiêu đề nhập nhanh theo danh mục
-- để hệ thống học thêm từ lịch sử tiêu đề đã dùng
-- xem báo cáo và lịch sử giao dịch
+## 1. Tư duy thiết kế
+Module này ưu tiên hai mục tiêu cùng lúc:
+- nhập giao dịch hằng ngày thật nhanh
+- vẫn đủ cấu trúc để xem báo cáo đúng nghiệp vụ cá nhân/gia đình
 
-## Các model chính
-### `dt.expense.entry`
-Giao dịch tài chính.
-- `entry_type`: `expense`, `income`, `adjustment`
-- `privacy`: `private`, `public`
-- `amount`: số tiền VND, không dùng phần lẻ
-- `category_id`: bắt buộc cho thu/chi, bỏ trống cho adjustment
-- tự tính `signed_amount`, `amount_label`, `amount_css_class`
-- khi create/write sẽ tự cập nhật dữ liệu học gợi ý tiêu đề
+Vì vậy nhiều chỗ được tách thành dữ liệu nền thay vì nhét logic vào giao diện.
 
-### `dt.expense.category`
-Danh mục giao dịch dùng chung cho chi tiêu và thu nhập.
-- `category_type`: `expense` hoặc `income`
-- `scope`: `shared` hoặc `private`
-- `user_id`: chủ sở hữu nếu là private
-- `create_uid`: vẫn được dùng để xác định người tạo thực tế, kể cả category shared
-- quyền sửa/xóa portal hiện tại: creator hoặc admin hệ thống
+## 2. Điểm nghiệp vụ quan trọng
+### `tháng hạch toán`
+Một giao dịch có thể thuộc tháng báo cáo khác với ngày giao dịch thật. Đây là nền để xử lý lương cuối tháng tính cho tháng sau.
 
-### `dt.expense.title.suggestion`
-Nguồn dữ liệu cho autocomplete tiêu đề.
-- gợi ý cấu hình tay (`is_manual=True`)
-- gợi ý học từ lịch sử (`is_manual=False`)
-- có `usage_count`, `last_used_at`, `sequence`
-- unique theo `(category_id, normalized_name)` để tránh trùng logic
+### Rule cuối tháng → tháng sau
+Rule này đặt ở danh mục (`apply_next_month_rule`). Khi một danh mục có bật cờ này, giao dịch phát sinh cuối tháng sẽ tự gợi ý `accounting_month` sang tháng sau.
 
-## Luồng portal chính
-### Trang chủ `/my/apps/expenses`
-- card số dư bấm mới hiện form cập nhật
-- lưu xong tạo adjustment để đưa số dư về giá trị thực tế
-- không còn hiển thị form cập nhật số dư ngay từ đầu
+### Danh mục cha/con
+Danh mục cha chỉ dùng để nhóm và thống kê. Chỉ danh mục lá mới được chọn khi tạo giao dịch.
 
-### Form giao dịch `/my/apps/expenses/new`
-- thứ tự nhập được tối ưu lại
-- chọn danh mục -> gọi endpoint gợi ý tiêu đề
-- gõ vào tiêu đề -> filter gợi ý theo query
-- gợi ý lấy từ cấu hình thủ công + lịch sử đã dùng
+### Quyền xem gia đình
+Khi chọn scope `Gia đình`, module không dùng cờ public/private trên giao dịch mà dựa vào `dt.family.access` trong `dt_core`.
 
-### Trang danh mục `/my/apps/expenses/categories`
-- mặc định hiện danh sách
-- có nút tạo mới riêng để bung form
-- sửa inline theo từng dòng danh mục
-- có panel riêng quản lý gợi ý tiêu đề
-- nếu xóa danh mục đã có giao dịch, hệ thống chuyển sang `active=False` để tránh lỗi ràng buộc
+## 3. Controller chính
+### Home
+- `/my/apps/expenses`
+- hiển thị số dư, tóm tắt tháng, lối vào nhanh, giao dịch gần đây
 
-## Endpoint portal quan trọng
-- `/my/apps/expenses/title-suggestions`
-  - trả JSON list gợi ý theo `category_id` và `q`
-- `/my/apps/expenses/categories/<id>/suggestions/save`
-- `/my/apps/expenses/categories/<id>/suggestions/<suggestion_id>/delete`
+### Giao dịch
+- `/my/apps/expenses/new`
+- `/my/apps/expenses/<id>/edit`
+- `/my/apps/expenses/save`
+- `/my/apps/expenses/<id>/delete`
+- `/my/apps/expenses/balance/save`
 
-## Frontend JS
-### `dt_expense/static/src/js/dt_expense_form.js`
-Đã chuyển sang chuẩn `publicWidget` của Odoo.
-Bao gồm 2 nhóm hành vi:
-- toggle panel số dư / panel tạo-sửa danh mục
-- autocomplete tiêu đề giao dịch theo danh mục
+### Danh mục và gợi ý
+- `/my/apps/expenses/categories`
+- `/my/apps/expenses/categories/new`
+- `/my/apps/expenses/categories/<id>/edit`
+- `/my/apps/expenses/categories/<id>/suggestions`
+- các route save/delete tương ứng
 
-## Mở rộng sau này
-Nền tảng hiện tại đã sẵn sàng để nâng cấp thêm:
-- fuzzy search gần đúng cho autocomplete
-- ưu tiên mạnh hơn theo tần suất và thời gian dùng gần đây
-- nhóm suggestion theo manual/history/recent
-- học tiêu đề theo user và theo company sâu hơn
+### Lịch sử và autocomplete
+- `/my/apps/expenses/history`
+- `/my/apps/expenses/title_suggestions`
+
+## 4. Frontend JS
+### `dt_expense_form.js`
+Chịu trách nhiệm cho:
+- chuyển tab loại giao dịch
+- ẩn/hiện field danh mục và adjustment
+- đồng bộ tháng hạch toán theo ngày + rule danh mục
+- autocomplete tiêu đề
+- toggle card số dư
+- toggle panel filter
+
+## 5. Những chỗ cần test sau khi nâng cấp
+- tạo giao dịch theo cả ba tab
+- lương cuối tháng tự gợi ý sang tháng sau
+- filter `Gia đình` có hiện đúng member và giao dịch
+- danh mục cha/con chỉ chọn được lá
+- autocomplete trả cả suggestion cấu hình tay và title history
+- xóa danh mục đã có giao dịch sẽ inactive thay vì unlink cứng

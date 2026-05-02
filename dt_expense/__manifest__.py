@@ -2,7 +2,7 @@
 {
     "name": "Family Expense",
     "version": "19.0.1.0.0",
-    "summary": "Quản lý chi tiêu hằng ngày Family",
+    "summary": "Quản lý thu chi cá nhân và gia đình trên portal",
     "category": "Website",
     "author": "Dinh Tran IT",
     "license": "LGPL-3",

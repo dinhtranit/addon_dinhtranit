@@ -12,7 +12,7 @@ class FamilyPortalCore(http.Controller):
         values = {
             "app_cards": apps,
             "current_user": request.env.user,
-            "page_name": extra.get("page_name", "apps"),
+            "page_name": extra.get("page_name", "expenses"),
             "page_title": extra.get("page_title", "Family"),
             "page_subtitle": extra.get("page_subtitle", ""),
             "back_url": extra.get("back_url", ""),
@@ -27,11 +27,21 @@ class FamilyPortalCore(http.Controller):
     @http.route("/my/profile", type="http", auth="user", website=True)
     def my_profile(self, **kw):
         user = request.env.user
+        family_users = request.env["res.users"].sudo().search([
+            ("id", "!=", user.id),
+            ("share", "=", False),
+            ("active", "=", True),
+        ], order="name")
+        access_map = {}
+        for access in user.sudo().dt_family_access_ids:
+            access_map[access.viewer_user_id.id] = access
         return request.render("dt_core.portal_profile", self._base_values(
             page_name="profile",
             page_title="Trang cá nhân",
-            page_subtitle="Cập nhật nhanh thông tin, ảnh đại diện và đăng xuất.",
+            page_subtitle="Cập nhật hồ sơ, cấu hình gia đình và đăng xuất.",
             profile_partner=user.partner_id,
+            family_users=family_users,
+            access_map=access_map,
             back_url="/my/apps/expenses",
         ))
 
@@ -56,6 +66,28 @@ class FamilyPortalCore(http.Controller):
                 elif "avatar_1920" in partner._fields:
                     partner_vals["avatar_1920"] = encoded
         partner.write(partner_vals)
+
+        access_model = request.env["dt.family.access"].sudo()
+        all_users = request.env["res.users"].sudo().search([("id", "!=", user.id), ("share", "=", False), ("active", "=", True)])
+        existing = {acc.viewer_user_id.id: acc for acc in user.sudo().dt_family_access_ids}
+        for other_user in all_users:
+            allow_expense = request.params.get(f"family_expense_{other_user.id}") == "on"
+            allow_memory = request.params.get(f"family_memory_{other_user.id}") == "on"
+            access = existing.get(other_user.id)
+            if allow_expense or allow_memory:
+                vals = {
+                    "owner_user_id": user.id,
+                    "viewer_user_id": other_user.id,
+                    "allow_expense": allow_expense,
+                    "allow_memory": allow_memory,
+                    "active": True,
+                }
+                if access:
+                    access.write(vals)
+                else:
+                    access_model.create(vals)
+            elif access:
+                access.unlink()
         return request.redirect("/my/profile")
 
     @http.route("/my/profile/logout", type="http", auth="user", website=True)

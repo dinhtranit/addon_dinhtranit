@@ -88,7 +88,7 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
             const button = document.createElement("button");
             button.type = "button";
             button.className = "dt-money-suggestion";
-            button.textContent = `${formatNumberString(String(amount))} đ`;
+            button.textContent = `${formatNumberString(String(amount))} VNĐ`;
             button.addEventListener("click", (ev) => {
                 ev.preventDefault();
                 this.el.value = formatNumberString(String(amount));
