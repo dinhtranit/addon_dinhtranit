@@ -150,6 +150,8 @@
     display: flex;
     gap: 8px;
     margin-top: 8px;
+    flex-direction: row;
+    flex-wrap: wrap;
 }
 
 .dt-autocomplete-item,

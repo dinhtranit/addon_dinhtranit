@@ -106,7 +106,7 @@
                             <span>Ngày giao dịch</span>
                             <input type="date" name="expense_date" t-att-value="default_date" data-expense-date="1"/>
                         </label>
-                        <label class="dt-field">
+                        <label class="dt-field d-none">
                             <span>Tháng hạch toán</span>
                             <input type="date" name="accounting_month" t-att-value="default_accounting_month" data-accounting-month="1"/>
                         </label>

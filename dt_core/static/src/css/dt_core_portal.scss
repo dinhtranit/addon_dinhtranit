@@ -8,7 +8,10 @@
     background: var(--dt-bg);
     color: var(--dt-text);
     min-height: 100vh;
-    padding-bottom: 84px
+    padding-bottom: 84px;
+    a,a:hover{
+        text-decoration: none;
+    }
 }
 
 .dt-topbar {
