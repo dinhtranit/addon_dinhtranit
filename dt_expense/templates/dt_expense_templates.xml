@@ -314,6 +314,37 @@
         </t>
     </template>
 
+    <template id="portal_expense_history_entries_partial" name="Expense History Entries Partial">
+        <t t-foreach="entries" t-as="entry">
+            <div class="dt-entry-row">
+                <div class="dt-entry-head">
+                    <div>
+                        <div class="dt-entry-title"><t t-esc="entry.get_icon()"/> <t t-esc="entry.name or entry.category_id.name or entry.get_entry_type_label()"/></div>
+                        <div class="dt-entry-meta">
+                            <span class="dt-tag"><t t-esc="entry.expense_date.strftime('%d/%m/%Y') if entry.expense_date else ''"/></span>
+                            <span class="dt-tag" t-if="entry.category_id"><t t-esc="entry.category_id.name"/></span>
+                            <span class="dt-tag" t-if="scope == 'family'"><t t-esc="entry.user_id.name"/></span>
+                        </div>
+                        <div t-if="entry.note" class="dt-entry-note mt-1"><t t-esc="entry.note"/></div>
+                    </div>
+                    <div class="dt-inline-actions">
+                        <div t-attf-class="dt-entry-amount #{entry.amount_css_class}"><t t-esc="entry.amount_label"/></div>
+                        <details t-if="entry.user_id == request.env.user" class="dt-more-menu">
+                            <summary>⋮</summary>
+                            <div class="dt-more-menu__panel">
+                                <a t-att-href="'/my/apps/expenses/%s/edit' % entry.id">Sửa</a>
+                                <form t-att-action="'/my/apps/expenses/%s/delete' % entry.id" method="post">
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                    <button type="submit">Xóa</button>
+                                </form>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
     <template id="portal_expense_history" name="Expense History">
         <t t-call="dt_core.portal_shell">
             <section class="dt-section">
@@ -321,9 +352,9 @@
                     <form method="get" action="/my/apps/expenses/history" class="dt-search-inline">
                         <input type="hidden" name="tab" t-att-value="tab"/>
                         <input type="hidden" name="scope" t-att-value="scope"/>
+                        <input type="hidden" name="date_from" t-att-value="date_from"/>
+                        <input type="hidden" name="date_to" t-att-value="date_to"/>
                         <input t-if="member_id" type="hidden" name="member_id" t-att-value="member_id"/>
-                        <input t-if="date_from" type="hidden" name="date_from" t-att-value="date_from"/>
-                        <input t-if="date_to" type="hidden" name="date_to" t-att-value="date_to"/>
                         <input t-if="entry_type" type="hidden" name="entry_type" t-att-value="entry_type"/>
                         <input t-if="parent_id" type="hidden" name="parent_id" t-att-value="parent_id"/>
                         <input t-if="category_id" type="hidden" name="category_id" t-att-value="category_id"/>
@@ -335,19 +366,26 @@
 
                 <form method="get" action="/my/apps/expenses/history" t-attf-class="dt-form dt-card p-3 #{'' if filter_count else 'd-none'}" data-filter-panel="1">
                     <input type="hidden" name="tab" t-att-value="tab"/>
+                    <input type="hidden" name="date_from" t-att-value="date_from"/>
+                    <input type="hidden" name="date_to" t-att-value="date_to"/>
                     <label class="dt-field"><span>Phạm vi</span><select name="scope"><option value="mine" t-att-selected="'selected' if scope == 'mine' else None">Của tôi</option><option value="family" t-att-selected="'selected' if scope == 'family' else None">Gia đình</option></select></label>
                     <label t-if="scope == 'family'" class="dt-field"><span>Thành viên</span><select name="member_id"><option value="">Tất cả thành viên</option><t t-foreach="family_members" t-as="member"><option t-att-value="member.id" t-att-selected="'selected' if member_id == member.id else None"><t t-esc="member.name"/></option></t></select></label>
-                    <div class="dt-grid-2"><label class="dt-field"><span>Từ ngày</span><input type="date" name="date_from" t-att-value="date_from"/></label><label class="dt-field"><span>Đến ngày</span><input type="date" name="date_to" t-att-value="date_to"/></label></div>
                     <label class="dt-field"><span>Loại giao dịch</span><select name="entry_type"><option value="">Tất cả</option><option value="expense" t-att-selected="'selected' if entry_type == 'expense' else None">Chi tiêu</option><option value="income" t-att-selected="'selected' if entry_type == 'income' else None">Thu nhập</option><option value="adjustment" t-att-selected="'selected' if entry_type == 'adjustment' else None">Điều chỉnh</option></select></label>
                     <label class="dt-field"><span>Danh mục cha</span><select name="parent_id"><option value="">Tất cả</option><t t-foreach="parent_categories" t-as="cat"><option t-att-value="cat.id" t-att-selected="'selected' if parent_id == cat.id else None"><t t-esc="cat.name"/></option></t></select></label>
                     <label class="dt-field"><span>Danh mục con</span><select name="category_id"><option value="">Tất cả</option><t t-foreach="child_categories" t-as="cat"><option t-att-value="cat.id" t-att-selected="'selected' if category_id == cat.id else None"><t t-esc="cat.name"/></option></t></select></label>
                     <t t-if="tab == 'statistics'"><label class="dt-field"><span>Nhóm thống kê</span><select name="group_mode"><option value="parent" t-att-selected="'selected' if group_mode == 'parent' else None">Theo danh mục cha</option><option value="child" t-att-selected="'selected' if group_mode == 'child' else None">Theo danh mục con</option></select></label></t>
-                    <div class="dt-inline-actions"><button type="submit" class="dt-btn dt-btn--primary">Áp dụng</button><a t-att-href="'/my/apps/expenses/history?tab=%s' % tab" class="dt-btn dt-btn--ghost">Xóa bộ lọc</a></div>
+                    <div class="dt-inline-actions"><button type="submit" class="dt-btn dt-btn--primary">Áp dụng</button><a t-att-href="'/my/apps/expenses/history?tab=%s&amp;date_from=%s&amp;date_to=%s' % (tab, date_from, date_to)" class="dt-btn dt-btn--ghost">Xóa bộ lọc</a></div>
                 </form>
 
+                <div class="dt-month-nav" data-month-nav="1" t-att-data-date-from="date_from" t-att-data-date-to="date_to">
+                    <button type="button" class="dt-month-nav__btn" data-month-nav-dir="-1">&#8592;</button>
+                    <span class="dt-month-nav__label"><t t-esc="month_label"/></span>
+                    <button type="button" class="dt-month-nav__btn" data-month-nav-dir="1">&#8594;</button>
+                </div>
+
                 <div class="dt-tabbar">
-                    <a t-attf-href="/my/apps/expenses/history?tab=activity&amp;scope=#{scope}" t-attf-class="dt-tab #{'is-active' if tab == 'activity' else ''}">Hoạt động</a>
-                    <a t-attf-href="/my/apps/expenses/history?tab=statistics&amp;scope=#{scope}" t-attf-class="dt-tab #{'is-active' if tab == 'statistics' else ''}">Thống kê</a>
+                    <a t-att-href="'/my/apps/expenses/history?tab=activity&amp;scope=%s&amp;date_from=%s&amp;date_to=%s' % (scope, date_from, date_to)" t-attf-class="dt-tab #{'is-active' if tab == 'activity' else ''}">Hoạt động</a>
+                    <a t-att-href="'/my/apps/expenses/history?tab=statistics&amp;scope=%s&amp;date_from=%s&amp;date_to=%s' % (scope, date_from, date_to)" t-attf-class="dt-tab #{'is-active' if tab == 'statistics' else ''}">Thống kê</a>
                 </div>
 
                 <div class="dt-summary-grid">
@@ -357,48 +395,26 @@
                 </div>
 
                 <t t-if="tab == 'activity'">
-                    <div class="dt-list">
+                    <div class="dt-list" data-entry-list="1">
                         <t t-if="entries">
-                            <t t-foreach="entries" t-as="entry">
-                                <div class="dt-entry-row">
-                                    <div class="dt-entry-head">
-                                        <div>
-                                            <div class="dt-entry-title"><t t-esc="entry.get_icon()"/> <t t-esc="entry.name or entry.category_id.name or entry.get_entry_type_label()"/></div>
-                                            <div class="dt-entry-meta">
-                                                <span class="dt-tag"><t t-esc="entry.expense_date.strftime('%d/%m/%Y') if entry.expense_date else ''"/></span>
-                                                <span class="dt-tag" t-if="entry.category_id"><t t-esc="entry.category_id.name"/></span>
-                                                <span class="dt-tag" t-if="scope == 'family'"><t t-esc="entry.user_id.name"/></span>
-                                            </div>
-                                            <div t-if="entry.note" class="dt-entry-note mt-1"><t t-esc="entry.note"/></div>
-                                        </div>
-                                        <div class="dt-inline-actions">
-                                            <div t-attf-class="dt-entry-amount #{entry.amount_css_class}"><t t-esc="entry.amount_label"/></div>
-                                            <details t-if="entry.user_id == request.env.user" class="dt-more-menu">
-                                                <summary>⋮</summary>
-                                                <div class="dt-more-menu__panel">
-                                                    <a t-att-href="'/my/apps/expenses/%s/edit' % entry.id">Sửa</a>
-                                                    <form t-att-action="'/my/apps/expenses/%s/delete' % entry.id" method="post">
-                                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                        <button type="submit">Xóa</button>
-                                                    </form>
-                                                </div>
-                                            </details>
-                                        </div>
-                                    </div>
-                                </div>
-                            </t>
+                            <t t-call="dt_expense.portal_expense_history_entries_partial"/>
                         </t>
                         <t t-else=""><div class="dt-empty-state">Không có giao dịch khớp bộ lọc.</div></t>
                     </div>
-                    <t t-if="simple_pager and simple_pager.get('page_count') &gt; 1">
-                        <div class="dt-inline-actions mt-3">
-                            <a t-if="simple_pager.get('prev_url')" t-att-href="simple_pager.get('prev_url')" class="dt-btn dt-btn--ghost">← Trước</a>
-                            <t t-foreach="simple_pager.get('pages')" t-as="p">
-                                <a t-att-href="p.get('url')" t-attf-class="dt-btn #{'dt-btn--primary' if p.get('is_current') else 'dt-btn--ghost'}"><t t-esc="p.get('number')"/></a>
-                            </t>
-                            <a t-if="simple_pager.get('next_url')" t-att-href="simple_pager.get('next_url')" class="dt-btn dt-btn--ghost">Sau →</a>
-                        </div>
-                    </t>
+                    <div class="dt-scroll-sentinel" data-scroll-sentinel="1"
+                         t-att-data-has-more="'1' if has_more else ''"
+                         t-att-data-next-offset="next_offset"
+                         t-att-data-scope="scope"
+                         t-att-data-search="search"
+                         t-att-data-member-id="member_id or ''"
+                         t-att-data-date-from="date_from"
+                         t-att-data-date-to="date_to"
+                         t-att-data-entry-type="entry_type"
+                         t-att-data-parent-id="parent_id or ''"
+                         t-att-data-category-id="category_id or ''"/>
+                    <div class="dt-scroll-loading d-none" data-scroll-loading="1">
+                        <span class="dt-scroll-loading__dot"/><span class="dt-scroll-loading__dot"/><span class="dt-scroll-loading__dot"/>
+                    </div>
                 </t>
                 <t t-else="">
                     <div class="dt-card p-3">

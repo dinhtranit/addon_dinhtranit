@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import calendar
 from collections import defaultdict
 from datetime import date, datetime
 import json
@@ -375,13 +376,17 @@ class FamilyExpensePortal(http.Controller):
         return request.redirect(back_url)
 
     @http.route("/my/apps/expenses/history", type="http", auth="user", website=True)
-    def expense_history(self, page=1, tab="activity", scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", group_mode="parent", **kw):
+    def expense_history(self, tab="activity", scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", group_mode="parent", **kw):
         user = request.env.user
         tab = tab if tab in ("activity", "statistics") else "activity"
         scope = scope if scope in ("mine", "family") else "mine"
         member_value = self._safe_int(member_id)
         parent_value = self._safe_int(parent_id)
         category_value = self._safe_int(category_id)
+        today = date.today()
+        if not date_from and not date_to:
+            date_from = today.replace(day=1).strftime("%Y-%m-%d")
+            date_to = today.replace(day=calendar.monthrange(today.year, today.month)[1]).strftime("%Y-%m-%d")
         domain = self._activity_domain(user, scope=scope, search=search, member_id=member_value, date_from=self._parse_date(date_from), date_to=self._parse_date(date_to), entry_type=entry_type, parent_id=parent_value, category_id=category_value)
         entry_model = self._entry_model()
         all_entries = entry_model.search(domain, order="expense_date desc, id desc")
@@ -390,8 +395,8 @@ class FamilyExpensePortal(http.Controller):
         total_net = sum(e.get_balance_effect() for e in all_entries)
         per_page = 20
         total = len(all_entries)
-        pager = portal_pager(url="/my/apps/expenses/history", total=total, page=page, step=per_page, url_args={"tab": tab, "scope": scope, "search": search, "member_id": member_id, "date_from": date_from, "date_to": date_to, "entry_type": entry_type, "parent_id": parent_id, "category_id": category_id, "group_mode": group_mode})
-        entries = all_entries[pager["offset"]:pager["offset"]+per_page]
+        entries = all_entries[:per_page]
+        has_more = total > per_page
         parents = self._category_model().search(self._category_domain(user, parent_only=True), order="category_type, sequence, id")
         children_domain = self._category_domain(user, leaf_only=True)
         if parent_value:
@@ -400,9 +405,35 @@ class FamilyExpensePortal(http.Controller):
         visible_user_ids = self._visible_user_ids(user, scope)
         family_members = request.env["res.users"].sudo().browse(visible_user_ids)
         statistics = self._build_statistics(all_entries, group_mode=group_mode)
-        filter_count = len([x for x in [search, member_id if scope == 'family' else '', date_from, date_to, entry_type, parent_id, category_id] if x])
-        simple_pager = self._build_simple_pager(pager)
-        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", page_subtitle="", tab=tab, entries=entries, pager=pager, simple_pager=simple_pager, search=search, scope=scope, member_id=member_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, parent_id=parent_value, category_id=category_value, parent_categories=parents, child_categories=children, group_mode=group_mode if group_mode in ('parent','child') else 'parent', statistics=statistics, total_income_label=self._format_money(total_income), total_expense_label=self._format_money(total_expense), total_net_label=self._format_money(total_net, show_plus=True), filter_count=filter_count, back_url="/my/apps/expenses"))
+        filter_count = len([x for x in [search, member_id if scope == 'family' else '', entry_type, parent_id, category_id] if x])
+        df = self._parse_date(date_from)
+        month_label = df.strftime("Tháng %m/%Y") if df else ""
+        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", page_subtitle="", tab=tab, entries=entries, has_more=has_more, next_offset=per_page, month_label=month_label, search=search, scope=scope, member_id=member_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, parent_id=parent_value, category_id=category_value, parent_categories=parents, child_categories=children, group_mode=group_mode if group_mode in ('parent','child') else 'parent', statistics=statistics, total_income_label=self._format_money(total_income), total_expense_label=self._format_money(total_expense), total_net_label=self._format_money(total_net, show_plus=True), filter_count=filter_count, back_url="/my/apps/expenses"))
+
+    @http.route("/my/apps/expenses/history/entries", type="http", auth="user", website=True)
+    def expense_history_entries(self, offset=0, scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", **kw):
+        user = request.env.user
+        scope = scope if scope in ("mine", "family") else "mine"
+        member_value = self._safe_int(member_id)
+        parent_value = self._safe_int(parent_id)
+        category_value = self._safe_int(category_id)
+        offset_value = max(0, self._safe_int(str(offset), 0))
+        per_page = 20
+        domain = self._activity_domain(user, scope=scope, search=search, member_id=member_value, date_from=self._parse_date(date_from), date_to=self._parse_date(date_to), entry_type=entry_type, parent_id=parent_value, category_id=category_value)
+        all_entries = self._entry_model().search(domain, order="expense_date desc, id desc")
+        total = len(all_entries)
+        entries = all_entries[offset_value:offset_value + per_page]
+        has_more = offset_value + per_page < total
+        html = request.env["ir.ui.view"]._render_template(
+            "dt_expense.portal_expense_history_entries_partial",
+            {"entries": entries, "scope": scope, "request": request},
+        )
+        if isinstance(html, bytes):
+            html = html.decode("utf-8")
+        return request.make_response(
+            json.dumps({"html": html, "has_more": has_more, "next_offset": offset_value + per_page}),
+            headers=[("Content-Type", "application/json")],
+        )
 
     @http.route("/my/apps/expenses/title_suggestions", type="http", auth="user", website=True)
     def expense_title_suggestions(self, category_id="", q="", **kw):

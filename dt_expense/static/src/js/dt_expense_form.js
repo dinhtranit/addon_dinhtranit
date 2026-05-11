@@ -203,3 +203,108 @@ publicWidget.registry.DTExpenseBalance = publicWidget.Widget.extend({
         }
     },
 });
+
+publicWidget.registry.DTExpenseHistory = publicWidget.Widget.extend({
+    selector: '.dt-section',
+    events: {
+        'click [data-month-nav-dir]': '_onMonthNavClick',
+    },
+
+    start() {
+        this.entryList = this.el.querySelector('[data-entry-list="1"]');
+        this.sentinel = this.el.querySelector('[data-scroll-sentinel="1"]');
+        this.loadingEl = this.el.querySelector('[data-scroll-loading="1"]');
+        this._loading = false;
+        this._observer = null;
+        if (this.sentinel && this.sentinel.dataset.hasMore) {
+            this._initInfiniteScroll();
+        }
+        return this._super(...arguments);
+    },
+
+    _onMonthNavClick(ev) {
+        ev.preventDefault();
+        const dir = parseInt(ev.currentTarget.dataset.monthNavDir, 10);
+        const nav = this.el.querySelector('[data-month-nav="1"]');
+        if (!nav || !nav.dataset.dateFrom) {
+            return;
+        }
+        const parts = nav.dataset.dateFrom.split('-').map((n) => parseInt(n, 10));
+        let year = parts[0];
+        let month = parts[1] + dir;
+        if (month > 12) { year += 1; month = 1; }
+        if (month < 1) { year -= 1; month = 12; }
+        const lastDay = new Date(year, month, 0).getDate();
+        const newDateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
+        const newDateTo = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        const url = new URL(window.location.href);
+        url.searchParams.set('date_from', newDateFrom);
+        url.searchParams.set('date_to', newDateTo);
+        url.searchParams.delete('page');
+        window.location.href = url.toString();
+    },
+
+    _initInfiniteScroll() {
+        this._observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && !this._loading) {
+                    this._loadMore();
+                }
+            },
+            { rootMargin: '300px' }
+        );
+        this._observer.observe(this.sentinel);
+    },
+
+    async _loadMore() {
+        if (this._loading) {
+            return;
+        }
+        const sentinel = this.sentinel;
+        if (!sentinel || !sentinel.dataset.hasMore) {
+            return;
+        }
+        this._loading = true;
+        if (this.loadingEl) {
+            this.loadingEl.classList.remove('d-none');
+        }
+        const params = new URLSearchParams({
+            offset: sentinel.dataset.nextOffset || '0',
+            scope: sentinel.dataset.scope || 'mine',
+            search: sentinel.dataset.search || '',
+            member_id: sentinel.dataset.memberId || '',
+            date_from: sentinel.dataset.dateFrom || '',
+            date_to: sentinel.dataset.dateTo || '',
+            entry_type: sentinel.dataset.entryType || '',
+            parent_id: sentinel.dataset.parentId || '',
+            category_id: sentinel.dataset.categoryId || '',
+        });
+        try {
+            const response = await fetch(`/my/apps/expenses/history/entries?${params}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            if (!response.ok) {
+                throw new Error('network');
+            }
+            const data = await response.json();
+            if (data.html && this.entryList) {
+                this.entryList.insertAdjacentHTML('beforeend', data.html);
+            }
+            if (data.has_more) {
+                sentinel.dataset.nextOffset = data.next_offset;
+            } else {
+                delete sentinel.dataset.hasMore;
+                if (this._observer) {
+                    this._observer.unobserve(sentinel);
+                }
+            }
+        } catch (_e) {
+            // silent — user can refresh if needed
+        } finally {
+            this._loading = false;
+            if (this.loadingEl) {
+                this.loadingEl.classList.add('d-none');
+            }
+        }
+    },
+});
