@@ -44,7 +44,7 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
     start() {
         this._ensureSuggestionHolder();
         this.el.value = formatSignedValue(this.el.value);
-        this._buildSuggestions();
+        this.holder.style.display = "none";
         return this._super(...arguments);
     },
 
@@ -104,7 +104,7 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
     _onInput() {
         const formatted = formatSignedValue(this.el.value);
         this.el.value = formatted;
-        this._buildSuggestions();
+        if (document.activeElement === this.el) { this._buildSuggestions(); }
     },
 
     _onFocus() {
@@ -114,7 +114,7 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
     _onBlur() {
         window.setTimeout(() => {
             if (!this.holder.matches(":hover")) {
-                this.holder.style.display = this.holder.children.length ? "flex" : "none";
+                this.holder.style.display = "none";
             }
         }, 150);
     },

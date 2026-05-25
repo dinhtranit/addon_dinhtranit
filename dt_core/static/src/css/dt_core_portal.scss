@@ -167,7 +167,7 @@
 .dt-filter-panel select {
     border: 0;
     border-radius: 18px;
-    padding: 14px 16px;
+    padding: 10px 13px;
     background: #f6f0f0;
     width: 100%;
     color: var(--dt-text);
@@ -457,44 +457,6 @@
     padding-bottom: 0;
 }
 
-.dt-all-categories {
-    background: var(--dt-card-strong);
-    border-radius: 24px;
-    padding: 16px;
-    border: 1px solid var(--dt-line);
-}
-.dt-all-categories .dt-row-between button {
-    border: 0;
-    background: transparent;
-    font-weight: 800;
-    color: var(--dt-muted);
-}
-.dt-all-categories__grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-}
-.dt-all-cat {
-    border: 0;
-    background: transparent;
-    color: var(--dt-text);
-    display: grid;
-    justify-items: center;
-    gap: 6px;
-    font-weight: 800;
-}
-.dt-all-cat span {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: #f7dccc;
-    display: grid;
-    place-items: center;
-    font-size: 24px;
-}
-.dt-all-cat.is-active span {
-    outline: 3px solid var(--dt-primary);
-}
 .dt-file-input {
     position: absolute;
     opacity: 0;

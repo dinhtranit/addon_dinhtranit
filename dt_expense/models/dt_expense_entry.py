@@ -164,7 +164,7 @@ class FamilyExpenseEntry(models.Model):
             effect = record.get_balance_effect()
             record.signed_amount = effect
             record.balance_effect = effect
-            record.amount_label = record._format_money(effect, show_plus=True, short=True)
+            record.amount_label = record._format_money(effect, show_plus=True, short=False)
             record.amount_display = record.amount_label
             if effect < 0:
                 record.amount_css_class = "dt-amount-negative"

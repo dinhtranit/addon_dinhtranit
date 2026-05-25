@@ -28,6 +28,10 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         'change [data-category-select="1"]': '_onCategoryChange',
         'input [data-title-input="1"]': '_onTitleInput',
         'focusin [data-title-input="1"]': '_onTitleFocus',
+        'focusout [data-title-input="1"]': '_onTitleBlur',
+        'change [data-file-input="1"]': '_onFileChange',
+        'click [data-category-dialog-close="1"]': '_hideAllCategories',
+        'input [data-category-search="1"]': '_onCategorySearch',
         'change [data-expense-date="1"]': '_onDateChange',
         'input input[name="amount"]': '_updateSavePreview',
     },
@@ -44,9 +48,69 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this.savePreview = this.el.querySelector('[data-save-amount-preview="1"]');
         this.allCategories = this.el.querySelector('[data-all-categories="1"]');
         this._suggestionRequest = 0;
+        this.quickRow = this.el.querySelector('.dt-quick-cats__row');
+        this._snapshotOriginalQuickRow();
         this._updateState();
+        this._rebuildQuickRow();
         this._updateSavePreview();
         return this._super(...arguments);
+    },
+
+    _snapshotOriginalQuickRow() {
+        this.originalChipsByType = { expense: [], income: [] };
+        this.addMoreBtn = null;
+        if (!this.quickRow) { return; }
+        Array.from(this.quickRow.children).forEach((child) => {
+            if (child.dataset && child.dataset.showAllCategories) {
+                this.addMoreBtn = child.cloneNode(true);
+            } else if (child.dataset && child.dataset.categoryId) {
+                const t = child.dataset.entryType;
+                if (this.originalChipsByType[t]) { this.originalChipsByType[t].push(child.cloneNode(true)); }
+            }
+        });
+    },
+
+    _chipFromTile(tile) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'dt-quick-cat';
+        chip.dataset.categoryId = tile.dataset.categoryId;
+        chip.dataset.entryType = tile.dataset.entryType;
+        chip.dataset.nextMonthRule = tile.dataset.nextMonthRule || '0';
+        const icon = document.createElement('span');
+        const iconText = tile.querySelector('.dt-cat-tile__icon');
+        icon.textContent = (iconText ? iconText.textContent : '💸').trim() || '💸';
+        const name = document.createElement('small');
+        const nameText = tile.querySelector('.dt-cat-tile__name');
+        name.textContent = (nameText ? nameText.textContent : '').trim();
+        chip.appendChild(icon);
+        chip.appendChild(name);
+        return chip;
+    },
+
+    _rebuildQuickRow() {
+        if (!this.quickRow) { return; }
+        const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
+        const activeId = (this.categorySelect && this.categorySelect.value) || '';
+        const originals = (this.originalChipsByType[currentType] || []).map((c) => c.cloneNode(true));
+        const originalIds = originals.map((c) => c.dataset.categoryId);
+        let chips;
+        if (activeId && !originalIds.includes(activeId)) {
+            const tile = this.allCategories && this.allCategories.querySelector(`[data-cat-item="1"][data-category-id="${activeId}"]`);
+            const promoted = tile ? this._chipFromTile(tile) : null;
+            chips = promoted ? [promoted].concat(originals.slice(0, 2)) : originals;
+        } else {
+            chips = originals;
+        }
+        this.quickRow.innerHTML = '';
+        chips.forEach((c) => {
+            c.hidden = false;
+            c.removeAttribute('hidden');
+            c.classList.toggle('is-active', c.dataset.categoryId === activeId);
+            this.quickRow.appendChild(c);
+        });
+        if (this.addMoreBtn) { this.quickRow.appendChild(this.addMoreBtn.cloneNode(true)); }
+        this.quickRow.scrollLeft = 0;
     },
 
     _onTabClick(ev) {
@@ -56,17 +120,78 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this.el.querySelectorAll('[data-entry-tab]').forEach((button) => {
             button.classList.toggle('is-active', button.dataset.entryTab === tab);
         });
+        this._hideAllCategories();
         this._updateState();
     },
 
     _showAllCategories(ev) {
         ev.preventDefault();
-        if (this.allCategories) { this.allCategories.classList.remove('d-none'); }
+        if (!this.allCategories) { return; }
+        const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
+        this.allCategories.dataset.activeType = currentType;
+        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((n) => { n.hidden = false; n.removeAttribute('hidden'); });
+        this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
+            const visibleTiles = Array.from(group.querySelectorAll('[data-cat-item="1"]')).filter((n) => n.dataset.entryType === currentType);
+            group.style.display = visibleTiles.length ? '' : 'none';
+        });
+        this.allCategories.classList.remove('d-none');
+        document.body.style.overflow = 'hidden';
     },
 
     _hideAllCategories(ev) {
-        ev.preventDefault();
-        if (this.allCategories) { this.allCategories.classList.add('d-none'); }
+        if (ev) { ev.preventDefault(); }
+        if (!this.allCategories) { return; }
+        this.allCategories.classList.add('d-none');
+        document.body.style.overflow = '';
+    },
+
+    _onCategorySearch(ev) {
+        const q = (ev.currentTarget.value || '').trim().toLowerCase();
+        if (!this.allCategories) { return; }
+        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((node) => {
+            const name = (node.dataset.catName || '').toLowerCase();
+            node.style.display = !q || name.includes(q) ? '' : 'none';
+        });
+        this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
+            const anyVisible = Array.from(group.querySelectorAll('[data-cat-item="1"]')).some((n) => n.style.display !== 'none');
+            group.style.display = anyVisible ? '' : 'none';
+        });
+    },
+
+    _onFileChange(ev) {
+        const input = ev.currentTarget;
+        const holder = this.el.querySelector('[data-file-preview="1"]');
+        if (!holder) { return; }
+        holder.innerHTML = '';
+        const files = Array.from(input.files || []);
+        if (!files.length) { holder.classList.add('d-none'); return; }
+        holder.classList.remove('d-none');
+        files.forEach((file) => {
+            const tile = document.createElement('div');
+            tile.className = 'dt-media-tile dt-media-tile--new';
+            if (file.type.startsWith('image/')) {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                tile.appendChild(img);
+            } else {
+                const label = document.createElement('span');
+                label.textContent = '📎 ' + file.name;
+                tile.appendChild(label);
+            }
+            const badge = document.createElement('span');
+            badge.className = 'dt-media-tile__badge';
+            badge.textContent = '✓';
+            tile.appendChild(badge);
+            holder.appendChild(tile);
+        });
+    },
+
+    _onTitleBlur() {
+        window.setTimeout(() => {
+            if (this.titleList && !this.titleList.matches(':hover')) {
+                this.titleList.classList.add('d-none');
+            }
+        }, 150);
     },
 
     _onQuickCategoryClick(ev) {
@@ -74,6 +199,7 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         const button = ev.currentTarget;
         const categoryId = button.dataset.categoryId;
         const entryType = button.dataset.entryType;
+        const fromModal = !!(this.allCategories && button.closest('[data-all-categories]'));
         if (entryType && this.entryTypeInput) {
             this.entryTypeInput.value = entryType;
             this.el.querySelectorAll('[data-entry-tab]').forEach((tab) => tab.classList.toggle('is-active', tab.dataset.entryTab === entryType));
@@ -82,7 +208,7 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
             this.categorySelect.value = categoryId;
             this.el.querySelectorAll('[data-category-id]').forEach((chip) => chip.classList.toggle('is-active', chip.dataset.categoryId === categoryId));
         }
-        if (this.allCategories && button.closest('[data-all-categories]')) { this.allCategories.classList.add('d-none'); }
+        if (fromModal) { this._hideAllCategories(); }
         this._onCategoryChange();
     },
 
@@ -101,10 +227,10 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
             });
             if (isAdjustment) { this.categorySelect.value = ''; }
         }
-        this.el.querySelectorAll('[data-category-id]').forEach((chip) => {
-            chip.hidden = !isAdjustment && chip.dataset.entryType !== currentType;
+        this.el.querySelectorAll('[data-cat-item="1"]').forEach((chip) => {
             chip.classList.toggle('is-active', this.categorySelect && chip.dataset.categoryId === this.categorySelect.value);
         });
+        this._rebuildQuickRow();
         this._onDateChange();
         this._refreshSuggestions();
         this._updateSavePreview();
@@ -113,8 +239,9 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
     _onCategoryChange() {
         if (this.categorySelect) {
             const categoryId = this.categorySelect.value;
-            this.el.querySelectorAll('[data-category-id]').forEach((chip) => chip.classList.toggle('is-active', chip.dataset.categoryId === categoryId));
+            this.el.querySelectorAll('[data-cat-item="1"]').forEach((chip) => chip.classList.toggle('is-active', chip.dataset.categoryId === categoryId));
         }
+        this._rebuildQuickRow();
         this._onDateChange();
         this._refreshSuggestions(true);
     },
@@ -181,7 +308,13 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
     events: {
         'click [data-balance-card="1"]': '_showBalanceForm',
         'click [data-balance-cancel="1"]': '_hideBalanceForm',
+        'click [data-payment-toggle]': '_onPaymentToggle',
         'click [data-month-nav-dir]': '_onMonthNavClick',
+        'click [data-filter-toggle="1"]': '_onFilterToggle',
+        'click [data-member-open="1"]': '_onMemberOpen',
+        'click [data-member-close="1"]': '_onMemberClose',
+        'click [data-member-apply="1"]': '_onMemberApply',
+        'change select[name="scope"]': '_onScopeChange',
     },
 
     start() {
@@ -193,6 +326,56 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
         this._observer = null;
         if (this.sentinel && this.sentinel.dataset.hasMore) { this._initInfiniteScroll(); }
         return this._super(...arguments);
+    },
+
+    _onFilterToggle(ev) {
+        ev.preventDefault();
+        const adv = this.el.querySelector('[data-filter-advanced="1"]');
+        if (adv) { adv.classList.toggle('d-none'); }
+    },
+
+    _onMemberOpen(ev) {
+        ev.preventDefault();
+        const dlg = this.el.querySelector('[data-member-dialog="1"]');
+        if (dlg) { dlg.classList.remove('d-none'); document.body.style.overflow = 'hidden'; }
+    },
+
+    _onMemberClose(ev) {
+        if (ev) { ev.preventDefault(); }
+        const dlg = this.el.querySelector('[data-member-dialog="1"]');
+        if (dlg) { dlg.classList.add('d-none'); document.body.style.overflow = ''; }
+    },
+
+    _onScopeChange(ev) {
+        const isFamily = ev.currentTarget.value === 'family';
+        const memberFilter = this.el.querySelector('[data-member-filter="1"]');
+        if (memberFilter) { memberFilter.classList.toggle('d-none', !isFamily); }
+    },
+
+    _onMemberApply(ev) {
+        ev.preventDefault();
+        const dlg = this.el.querySelector('[data-member-dialog="1"]');
+        const form = this.el.querySelector('[data-filter-form="1"]');
+        if (!dlg || !form) { return; }
+        form.querySelectorAll('input[data-member-hidden="1"]').forEach((n) => n.remove());
+        const container = form.querySelector('.dt-filter-members');
+        dlg.querySelectorAll('input[data-member-checkbox="1"]:checked').forEach((cb) => {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'member_ids';
+            hidden.value = cb.value;
+            hidden.dataset.memberHidden = '1';
+            container.appendChild(hidden);
+        });
+        this._onMemberClose();
+        form.submit();
+    },
+
+    _onPaymentToggle(ev) {
+        ev.preventDefault();
+        const key = ev.currentTarget.dataset.paymentToggle;
+        const form = this.el.querySelector(`[data-payment-form="${key}"]`);
+        if (form) { form.classList.toggle('d-none'); }
     },
 
     _showBalanceForm(ev) {

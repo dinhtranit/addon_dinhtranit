@@ -218,6 +218,8 @@ class FamilyExpensePortal(http.Controller):
             "total_label": self._format_money(total_amount, short=True),
             "rows": rows,
             "pie_style": "background: conic-gradient(%s);" % ", ".join(segments),
+            "filter_date_from": "",
+            "filter_date_to": "",
         }
 
     def _home_summary(self, user):
@@ -242,6 +244,8 @@ class FamilyExpensePortal(http.Controller):
             _, member_expense, member_net = self._cash_report_buckets(member_entries)
             member_rows.append({"user": member, "expense_label": self._format_money(member_expense, short=True), "net_label": self._format_money(member_net, show_plus=True, short=True)})
         report = self._build_report(month_entries, group_mode="parent", limit=5)
+        report["filter_date_from"] = month_start.isoformat()
+        report["filter_date_to"] = month_end.isoformat()
         return {
             "current_balance": current_balance,
             "current_balance_label": self._format_money(current_balance),
@@ -249,12 +253,12 @@ class FamilyExpensePortal(http.Controller):
             "month_label": month_label,
             "today_label": today_label,
             "month_short_label": month_short_label,
-            "month_income_label": self._format_money(income_total, short=True),
-            "month_expense_label": self._format_money(expense_total, short=True),
+            "month_income_label": self._format_money(income_total, short=False),
+            "month_expense_label": self._format_money(expense_total, short=False),
             "month_net_label": self._format_money(net_total, show_plus=True, short=True),
             "wallets": wallets,
-            "debt_lend_label": self._format_money(lend_total, short=True),
-            "debt_borrow_label": self._format_money(borrow_total, short=True),
+            "debt_lend_label": self._format_money(lend_total, short=False),
+            "debt_borrow_label": self._format_money(borrow_total, short=False),
             "debt_count": len(debts),
             "member_rows": member_rows,
             "report": report,
@@ -274,7 +278,11 @@ class FamilyExpensePortal(http.Controller):
             "income": categories.filtered(lambda c: c.category_type == "income"),
         }
         usage_counts = {cat.id: cat.entry_count for cat in categories}
-        quick_categories = categories.sorted(key=lambda c: (-usage_counts.get(c.id, 0), c.sequence, c.id))[:3]
+        def _pick_quick(items):
+            ranked = items.sorted(key=lambda c: (-usage_counts.get(c.id, 0), c.sequence, c.id))
+            return ranked[:3] if len(ranked) >= 3 else ranked
+        quick_categories = _pick_quick(categories_by_type["expense"]) | _pick_quick(categories_by_type["income"])
+        parent_categories = self._category_model().search(self._category_domain(user, parent_only=True), order="category_type, sequence, id")
         wallets = self._wallet_model().search([("user_id", "=", user.id), ("active", "=", True)], order="sequence, id")
         if not wallets:
             wallets = self._wallet_model().get_default_wallet(user)
@@ -288,6 +296,7 @@ class FamilyExpensePortal(http.Controller):
             categories=categories,
             categories_by_type=categories_by_type,
             quick_categories=quick_categories,
+            parent_categories=parent_categories,
             wallets=wallets,
             default_wallet=entry.wallet_id if entry else wallets[:1],
             media_items=media_items,
@@ -629,13 +638,13 @@ class FamilyExpensePortal(http.Controller):
         if parent_value:
             children_domain.append(("parent_id", "=", parent_value))
         children = self._category_model().search(children_domain, order="sequence, id")
-        family_members = request.env["res.users"].sudo().browse(self._visible_user_ids(user, scope))
+        family_members = request.env["res.users"].sudo().browse(self._visible_user_ids(user, "family"))
         wallets = self._wallet_model().search(self._wallet_domain(user, scope), order="sequence, id")
         df = self._parse_date(date_from)
         month_label = df.strftime("Tháng %-m, %Y") if df else ""
         member_filter_active = (scope == 'family' and (member_ids_value or member_id)) and 1 or 0
         filter_count = len([x for x in [search, member_filter_active, entry_type, parent_id, category_id, wallet_id] if x])
-        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", entries=entries, has_more=has_more, next_offset=per_page, month_label=month_label, search=search, scope=scope, member_id=member_value, selected_member_ids=member_ids_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value, parent_categories=parents, child_categories=children, wallets=wallets, total_income_label=self._format_money(total_income, short=True), total_expense_label=self._format_money(total_expense, short=True), total_net_label=self._format_money(total_net, show_plus=True, short=True), filter_count=filter_count, back_url="/my/apps/expenses"))
+        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", entries=entries, has_more=has_more, next_offset=per_page, month_label=month_label, search=search, scope=scope, member_id=member_value, selected_member_ids=member_ids_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value, parent_categories=parents, child_categories=children, wallets=wallets, total_income_label=self._format_money(total_income, short=False), total_expense_label=self._format_money(total_expense, short=False), total_net_label=self._format_money(total_net, show_plus=True, short=False), filter_count=filter_count, back_url="/my/apps/expenses"))
 
     @http.route("/my/apps/expenses/history/entries", type="http", auth="user", website=True)
     def expense_history_entries(self, offset=0, scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", wallet_id="", **kw):
@@ -668,6 +677,8 @@ class FamilyExpensePortal(http.Controller):
         report_domain = [("active", "=", True), ("user_id", "in", self._visible_user_ids(user, scope))] + report_domain
         entries = self._entry_model().search(report_domain, order="expense_date desc, id desc")
         report = self._build_report(entries, group_mode=group_mode if group_mode in ("parent", "child") else "parent")
+        report["filter_date_from"] = start.isoformat()
+        report["filter_date_to"] = end.isoformat()
         _, expense_total, _ = self._effect_buckets(entries.filtered(lambda e: e.entry_type == "expense"))
         return request.render("dt_expense.portal_expense_report", self._base_values(page_title="Báo cáo chi tiêu", page_subtitle="Phân bổ theo danh mục · %s" % period_label, period=period, anchor=anchor_date.isoformat(), scope=scope, group_mode=group_mode, period_label=period_label, report=report, expense_total_label=self._format_money(expense_total, short=True), back_url="/my/apps/expenses"))
 
