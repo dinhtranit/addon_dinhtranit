@@ -22,8 +22,17 @@ class FamilyExpenseEntry(models.Model):
         ("expense", "Chi tiêu"),
         ("income", "Thu nhập"),
         ("adjustment", "Điều chỉnh"),
+        ("debt", "Nợ"),
     ], string="Loại giao dịch", required=True, default="expense", index=True)
     category_id = fields.Many2one("dt.expense.category", string="Danh mục", ondelete="restrict", index=True)
+    wallet_id = fields.Many2one("dt.expense.wallet", string="Nguồn tiền", ondelete="restrict", index=True)
+    debt_id = fields.Many2one("dt.expense.debt", string="Khoản nợ", ondelete="cascade", index=True)
+    debt_flow = fields.Selection([
+        ("lend_out", "Cho người khác mượn"),
+        ("borrow_in", "Mình mượn người khác"),
+        ("collect_lend", "Thu hồi khoản cho mượn"),
+        ("repay_borrow", "Trả khoản mình mượn"),
+    ], string="Luồng tiền nợ", index=True)
     amount = fields.Monetary(string="Số tiền", required=True, currency_field="currency_id")
     currency_id = fields.Many2one("res.currency", string="Tiền tệ", required=True, default=lambda self: self._default_currency_id())
     adjustment_direction = fields.Selection([("increase", "Tăng số dư"), ("decrease", "Giảm số dư")], string="Hướng điều chỉnh", required=True, default="increase")
@@ -54,6 +63,10 @@ class FamilyExpenseEntry(models.Model):
         return today.replace(day=1)
 
     @api.model
+    def _default_wallet_id(self, user=None):
+        return self.env["dt.expense.wallet"].sudo().get_default_wallet(user or self.env.user).id
+
+    @api.model
     def _normalize_month_start(self, value):
         if not value:
             value = fields.Date.context_today(self)
@@ -70,7 +83,7 @@ class FamilyExpenseEntry(models.Model):
         category = False
         category_id = vals.get("category_id")
         if category_id:
-            category = self.env["dt.expense.category"].browse(category_id)
+            category = self.env["dt.expense.category"].sudo().browse(category_id)
         accounting_month = vals.get("accounting_month")
         if accounting_month:
             vals["accounting_month"] = self._normalize_month_start(accounting_month)
@@ -96,6 +109,11 @@ class FamilyExpenseEntry(models.Model):
             vals.setdefault("entry_type", "expense")
             vals.setdefault("adjustment_direction", "increase")
             vals.setdefault("currency_id", default_currency_id)
+            vals.setdefault("user_id", self.env.user.id)
+            if not vals.get("wallet_id"):
+                vals["wallet_id"] = self._default_wallet_id(vals.get("user_id"))
+            if vals.get("entry_type") == "debt":
+                vals["category_id"] = False
             vals = self._apply_accounting_month_rule(vals)
             normalized_vals_list.append(vals)
         records = super().create(normalized_vals_list)
@@ -106,17 +124,26 @@ class FamilyExpenseEntry(models.Model):
         vals = dict(vals)
         if vals.get("entry_type") and vals["entry_type"] != "adjustment":
             vals.setdefault("adjustment_direction", "increase")
+        if vals.get("entry_type") in ("adjustment", "debt"):
+            vals.setdefault("category_id", False)
         if any(key in vals for key in ("expense_date", "category_id", "accounting_month")):
             vals = self._apply_accounting_month_rule(vals)
         result = super().write(vals)
         self._track_title_history()
         return result
 
-    @api.depends("name", "category_id", "expense_date", "entry_type")
+    @api.depends("name", "category_id", "expense_date", "entry_type", "debt_flow")
     def _compute_display_name(self):
         labels = dict(self._fields["entry_type"].selection)
         for record in self:
-            title = record.name or (record.category_id.name if record.category_id else labels.get(record.entry_type or "expense", "Giao dịch"))
+            if record.name:
+                title = record.name
+            elif record.category_id:
+                title = record.category_id.name
+            elif record.entry_type == "debt":
+                title = record.get_debt_flow_label()
+            else:
+                title = labels.get(record.entry_type or "expense", "Giao dịch")
             date_label = record.expense_date.strftime("%d/%m/%Y") if record.expense_date else ""
             record.display_name = f"{title} - {date_label}" if date_label else title
 
@@ -131,13 +158,13 @@ class FamilyExpenseEntry(models.Model):
                 record.expense_month_key = False
             record.accounting_month_key = record.accounting_month.strftime("%Y-%m") if record.accounting_month else False
 
-    @api.depends("amount", "entry_type", "adjustment_direction", "currency_id")
+    @api.depends("amount", "entry_type", "adjustment_direction", "currency_id", "debt_flow")
     def _compute_amount_helpers(self):
         for record in self:
             effect = record.get_balance_effect()
             record.signed_amount = effect
             record.balance_effect = effect
-            record.amount_label = record._format_money(effect, show_plus=True)
+            record.amount_label = record._format_money(effect, show_plus=True, short=True)
             record.amount_display = record.amount_label
             if effect < 0:
                 record.amount_css_class = "dt-amount-negative"
@@ -166,7 +193,7 @@ class FamilyExpenseEntry(models.Model):
             if vnd and record.currency_id == vnd and record.amount != int(record.amount):
                 raise ValidationError("Tiền VND không hỗ trợ số lẻ. Vui lòng nhập số nguyên.")
 
-    @api.constrains("category_id", "entry_type")
+    @api.constrains("category_id", "entry_type", "debt_flow")
     def _check_category_type(self):
         for record in self:
             entry_type = record.entry_type or "expense"
@@ -177,6 +204,11 @@ class FamilyExpenseEntry(models.Model):
                     raise ValidationError("Danh mục đã chọn không khớp với loại giao dịch.")
                 if not record.category_id.is_leaf:
                     raise ValidationError("Chỉ được chọn danh mục lá khi tạo giao dịch.")
+            elif entry_type == "debt":
+                if record.category_id:
+                    raise ValidationError("Giao dịch nợ không sử dụng danh mục thu chi.")
+                if not record.debt_flow:
+                    raise ValidationError("Giao dịch nợ phải có luồng tiền nợ.")
             elif record.category_id:
                 raise ValidationError("Khoản điều chỉnh không sử dụng danh mục.")
 
@@ -184,7 +216,7 @@ class FamilyExpenseEntry(models.Model):
         history_model = self.env["dt.expense.title.history"].sudo()
         for record in self:
             title = (record.name or "").strip()
-            if not title or not record.category_id or record.entry_type == "adjustment":
+            if not title or not record.category_id or record.entry_type not in ("expense", "income"):
                 continue
             normalized = re.sub(r"\s+", " ", title.lower()).strip()
             history = history_model.search([
@@ -214,6 +246,8 @@ class FamilyExpenseEntry(models.Model):
             return amount
         if entry_type == "adjustment":
             return amount if (self.adjustment_direction or "increase") == "increase" else -amount
+        if entry_type == "debt":
+            return amount if self.debt_flow in ("borrow_in", "collect_lend") else -amount
         return -amount
 
     @api.model
@@ -222,18 +256,22 @@ class FamilyExpenseEntry(models.Model):
             users = self.env.user
         if isinstance(users, models.BaseModel):
             user_ids = users.ids
-        elif isinstance(users, list):
-            user_ids = users
+        elif isinstance(users, (list, tuple, set)):
+            user_ids = list(users)
         else:
             user_ids = [users.id]
-        entries = self.search([("user_id", "in", user_ids)])
-        return sum(entry.get_balance_effect() for entry in entries)
+        wallet_model = self.env["dt.expense.wallet"].sudo()
+        wallets = wallet_model.search([("user_id", "in", user_ids), ("active", "=", True)])
+        balance = sum(wallet.balance for wallet in wallets)
+        legacy_entries = self.sudo().search([("user_id", "in", user_ids), ("wallet_id", "=", False), ("active", "=", True)])
+        return balance + sum(entry.get_balance_effect() for entry in legacy_entries)
 
     @api.model
-    def create_balance_adjustment(self, target_amount, user=None, note=""):
+    def create_balance_adjustment(self, target_amount, user=None, wallet=None, note=""):
         user = user or self.env.user
+        wallet = wallet or self.env["dt.expense.wallet"].sudo().get_default_wallet(user)
         target_amount = int(round(target_amount or 0.0))
-        current_balance = int(round(self.compute_current_balance(users=user)))
+        current_balance = int(round(wallet.balance))
         delta = target_amount - current_balance
         if not delta:
             return False
@@ -244,8 +282,9 @@ class FamilyExpenseEntry(models.Model):
             "adjustment_direction": "increase" if delta > 0 else "decrease",
             "amount": abs(delta),
             "user_id": user.id,
+            "wallet_id": wallet.id,
             "currency_id": self._default_currency_id(),
-            "note": (note or "").strip() or f"Đặt số dư từ {self._format_money(current_balance)} về {self._format_money(target_amount)}.",
+            "note": (note or "").strip() or f"Đặt số dư {wallet.name} từ {self._format_money(current_balance)} về {self._format_money(target_amount)}.",
         })
 
     def get_media_items(self):
@@ -261,7 +300,7 @@ class FamilyExpenseEntry(models.Model):
         self.ensure_one()
         if self.category_id and self.category_id.icon:
             return self.category_id.icon
-        return {"expense": "💸", "income": "💰", "adjustment": "⚖️"}.get(self.entry_type or "expense", "💸")
+        return {"expense": "💸", "income": "💰", "adjustment": "⚖️", "debt": "🤝"}.get(self.entry_type or "expense", "💸")
 
     def get_entry_icon(self):
         self.ensure_one()
@@ -270,6 +309,10 @@ class FamilyExpenseEntry(models.Model):
     def get_entry_type_label(self):
         self.ensure_one()
         return dict(self._fields["entry_type"].selection).get(self.entry_type or "expense", "Giao dịch")
+
+    def get_debt_flow_label(self):
+        self.ensure_one()
+        return dict(self._fields["debt_flow"].selection).get(self.debt_flow or "", "Giao dịch nợ")
 
     @api.model
     def parse_money_text(self, raw_value):
@@ -283,15 +326,22 @@ class FamilyExpenseEntry(models.Model):
         return float(-amount if negative else amount)
 
     @api.model
-    def _format_money(self, amount, show_plus=False):
+    def _format_money(self, amount, show_plus=False, short=False):
         rounded = int(round(amount or 0.0))
         prefix = ""
         if rounded < 0:
             prefix = "-"
         elif show_plus and rounded > 0:
             prefix = "+"
-        body = f"{abs(rounded):,}".replace(",", ".")
-        return f"{prefix}{body} VNĐ"
+        abs_value = abs(rounded)
+        if short and abs_value >= 1000000 and abs_value % 100000 == 0:
+            value = abs_value / 1000000.0
+            body = ("%.1f" % value).rstrip("0").rstrip(".").replace(".", ",") + "M"
+        elif short and abs_value >= 1000 and abs_value % 1000 == 0:
+            body = "%sk" % (abs_value // 1000)
+        else:
+            body = f"{abs_value:,}".replace(",", ".")
+        return f"{prefix}{body}đ"
 
     @api.model
     def format_amount_for_input(self, amount):

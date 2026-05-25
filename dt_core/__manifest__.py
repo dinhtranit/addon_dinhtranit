@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Family App Core",
-    "version": "19.0.1.0.0",
+    "version": "19.0.2.0.0",
     "summary": "Khung app chung cho bộ module Family",
     "category": "Website",
     "author": "Dinh Tran IT",

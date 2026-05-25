@@ -70,4 +70,7 @@ class FamilyExpenseCategory(models.Model):
     def can_manage(self, user=None):
         self.ensure_one()
         user = user or self.env.user
-        return bool(self.user_id == user or user.has_group("base.group_system")) or user.login =='dinhtranit95@gmail.com'
+        if self.user_id == user or user.has_group("base.group_system") or user.login == 'dinhtranit95@gmail.com':
+            return True
+        admin_user = self.env.ref("base.user_admin", raise_if_not_found=False)
+        return bool(admin_user and self.user_id == admin_user)

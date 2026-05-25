@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Family Memoire",
-    "version": "19.0.1.0.0",
+    "version": "19.0.2.0.0",
     "summary": "Timeline kỷ niệm gia đình",
     "category": "Website",
     "author": "Dinh Tran IT",

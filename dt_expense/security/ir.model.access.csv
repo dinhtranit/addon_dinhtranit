@@ -3,6 +3,10 @@ access_dt_expense_category_user,dt.expense.category user,model_dt_expense_catego
 access_dt_expense_category_portal,dt.expense.category portal,model_dt_expense_category,base.group_portal,1,1,1,1
 access_dt_expense_entry_user,dt.expense.entry user,model_dt_expense_entry,base.group_user,1,1,1,1
 access_dt_expense_entry_portal,dt.expense.entry portal,model_dt_expense_entry,base.group_portal,1,1,1,1
+access_dt_expense_wallet_user,dt.expense.wallet user,model_dt_expense_wallet,base.group_user,1,1,1,1
+access_dt_expense_wallet_portal,dt.expense.wallet portal,model_dt_expense_wallet,base.group_portal,1,1,1,1
+access_dt_expense_debt_user,dt.expense.debt user,model_dt_expense_debt,base.group_user,1,1,1,1
+access_dt_expense_debt_portal,dt.expense.debt portal,model_dt_expense_debt,base.group_portal,1,1,1,1
 access_dt_expense_title_suggestion_user,dt.expense.title.suggestion user,model_dt_expense_title_suggestion,base.group_user,1,1,1,1
 access_dt_expense_title_suggestion_portal,dt.expense.title.suggestion portal,model_dt_expense_title_suggestion,base.group_portal,1,1,1,1
 access_dt_expense_title_history_user,dt.expense.title.history user,model_dt_expense_title_history,base.group_user,1,1,1,1

@@ -12,6 +12,14 @@ class ResUsers(models.Model):
         self.ensure_one()
         return self.has_group("base.group_system")
 
+    def get_family_candidate_users(self):
+        self.ensure_one()
+        return self.env["res.users"].sudo().search([
+            ("id", "!=", self.id),
+            # ("share", "=", False),
+            ("active", "=", True),
+        ], order="name")
+
     def get_allowed_expense_viewer_ids(self):
         self.ensure_one()
         return self.env["dt.family.access"].sudo().search([
@@ -31,7 +39,7 @@ class ResUsers(models.Model):
     def can_view_expense_from(self, owner_user):
         self.ensure_one()
         owner_user = owner_user.sudo() if owner_user else self.env.user
-        if self == owner_user:
+        if self == owner_user or self._has_admin_rights():
             return True
         return bool(self.env["dt.family.access"].sudo().search_count([
             ("owner_user_id", "=", owner_user.id),
@@ -43,7 +51,7 @@ class ResUsers(models.Model):
     def can_view_memory_from(self, owner_user):
         self.ensure_one()
         owner_user = owner_user.sudo() if owner_user else self.env.user
-        if self == owner_user:
+        if self == owner_user or self._has_admin_rights():
             return True
         return bool(self.env["dt.family.access"].sudo().search_count([
             ("owner_user_id", "=", owner_user.id),
@@ -69,3 +77,11 @@ class ResUsers(models.Model):
             ("active", "=", True),
         ]).mapped("owner_user_id").ids
         return list(dict.fromkeys([self.id] + allowed_owner_ids))
+
+    def get_family_expense_viewers(self):
+        self.ensure_one()
+        return self.env["res.users"].sudo().browse(self.get_allowed_expense_viewer_ids())
+
+    def get_family_memory_viewers(self):
+        self.ensure_one()
+        return self.env["res.users"].sudo().browse(self.get_allowed_memory_viewer_ids())

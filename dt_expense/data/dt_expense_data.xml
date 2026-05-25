@@ -12,24 +12,70 @@
         <field name="prefix">FamilyCAT-</field>
         <field name="padding">4</field>
     </record>
+    <record id="seq_dt_expense_wallet" model="ir.sequence">
+        <field name="name">Family Expense Wallet</field>
+        <field name="code">dt.expense.wallet</field>
+        <field name="prefix">WALLET-</field>
+        <field name="padding">4</field>
+    </record>
+    <record id="seq_dt_expense_debt" model="ir.sequence">
+        <field name="name">Family Expense Debt</field>
+        <field name="code">dt.expense.debt</field>
+        <field name="prefix">DEBT-</field>
+        <field name="padding">4</field>
+    </record>
+
     <record id="dt_app_expense" model="dt.app">
         <field name="name">Tài chính</field>
         <field name="code">expense</field>
         <field name="route">/my/apps/expenses</field>
-        <field name="icon">💸</field>
-        <field name="description">Quản lý số dư, giao dịch, lịch sử và thống kê chi tiết.</field>
+        <field name="icon">💰</field>
+        <field name="description">Thu chi, nguồn tiền, nợ, lịch sử và báo cáo gia đình.</field>
         <field name="sequence">30</field>
         <field name="is_active">True</field>
     </record>
+
     <record id="dt_expense_cat_food" model="dt.expense.category">
-        <field name="name">Ăn uống</field><field name="icon">🍜</field><field name="sequence">10</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
+        <field name="name">Ăn uống</field><field name="icon">🍱</field><field name="sequence">10</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
     </record>
-    <record id="dt_expense_cat_school" model="dt.expense.category">
-        <field name="name">Học hành</field><field name="icon">📚</field><field name="sequence">20</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
+    <record id="dt_expense_cat_home" model="dt.expense.category">
+        <field name="name">Sinh hoạt</field><field name="icon">🏠</field><field name="sequence">20</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_child" model="dt.expense.category">
+        <field name="name">Con cái</field><field name="icon">👶</field><field name="sequence">30</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
     </record>
     <record id="dt_expense_cat_transport" model="dt.expense.category">
-        <field name="name">Đi lại</field><field name="icon">🛵</field><field name="sequence">30</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
+        <field name="name">Đi lại</field><field name="icon">🚗</field><field name="sequence">40</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
     </record>
+    <record id="dt_expense_cat_other" model="dt.expense.category">
+        <field name="name">Khác</field><field name="icon">✨</field><field name="sequence">90</field><field name="category_type">expense</field><field name="user_id" ref="base.user_admin"/>
+    </record>
+
+    <record id="dt_expense_cat_breakfast" model="dt.expense.category">
+        <field name="name">Ăn sáng</field><field name="icon">🍜</field><field name="sequence">11</field><field name="category_type">expense</field><field name="parent_id" ref="dt_expense_cat_food"/><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_lunch" model="dt.expense.category">
+        <field name="name">Ăn trưa</field><field name="icon">🍲</field><field name="sequence">12</field><field name="category_type">expense</field><field name="parent_id" ref="dt_expense_cat_food"/><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_dinner" model="dt.expense.category">
+        <field name="name">Ăn tối</field><field name="icon">🍱</field><field name="sequence">13</field><field name="category_type">expense</field><field name="parent_id" ref="dt_expense_cat_food"/><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_coffee" model="dt.expense.category">
+        <field name="name">Cà phê</field><field name="icon">☕</field><field name="sequence">14</field><field name="category_type">expense</field><field name="parent_id" ref="dt_expense_cat_food"/><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_market" model="dt.expense.category">
+        <field name="name">Đi chợ</field><field name="icon">🛒</field><field name="sequence">21</field><field name="category_type">expense</field><field name="parent_id" ref="dt_expense_cat_home"/><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_utilities" model="dt.expense.category">
+        <field name="name">Điện nước</field><field name="icon">💡</field><field name="sequence">22</field><field name="category_type">expense</field><field name="parent_id" ref="dt_expense_cat_home"/><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_child_school" model="dt.expense.category">
+        <field name="name">Học hành</field><field name="icon">🎓</field><field name="sequence">31</field><field name="category_type">expense</field><field name="parent_id" ref="dt_expense_cat_child"/><field name="user_id" ref="base.user_admin"/>
+    </record>
+    <record id="dt_expense_cat_fuel" model="dt.expense.category">
+        <field name="name">Xăng</field><field name="icon">⛽</field><field name="sequence">41</field><field name="category_type">expense</field><field name="parent_id" ref="dt_expense_cat_transport"/><field name="user_id" ref="base.user_admin"/>
+    </record>
+
     <record id="dt_expense_cat_salary" model="dt.expense.category">
         <field name="name">Lương</field><field name="icon">💼</field><field name="sequence">110</field><field name="category_type">income</field><field name="apply_next_month_rule">True</field><field name="user_id" ref="base.user_admin"/>
     </record>

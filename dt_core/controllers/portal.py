@@ -16,6 +16,7 @@ class FamilyPortalCore(http.Controller):
             "page_title": extra.get("page_title", "Family"),
             "page_subtitle": extra.get("page_subtitle", ""),
             "back_url": extra.get("back_url", ""),
+            "show_bottom_nav": extra.get("show_bottom_nav", False),
         }
         values.update(extra)
         return values
@@ -27,22 +28,18 @@ class FamilyPortalCore(http.Controller):
     @http.route("/my/profile", type="http", auth="user", website=True)
     def my_profile(self, **kw):
         user = request.env.user
-        family_users = request.env["res.users"].sudo().search([
-            ("id", "!=", user.id),
-            ("share", "=", False),
-            ("active", "=", True),
-        ], order="name")
-        access_map = {}
-        for access in user.sudo().dt_family_access_ids:
-            access_map[access.viewer_user_id.id] = access
+        family_users = user.get_family_candidate_users()
+        access_map = {access.viewer_user_id.id: access for access in user.sudo().dt_family_access_ids}
         return request.render("dt_core.portal_profile", self._base_values(
             page_name="profile",
-            page_title="Trang cá nhân",
-            page_subtitle="Cập nhật hồ sơ, cấu hình gia đình và đăng xuất.",
-            profile_partner=user.partner_id,
+            page_title="Tôi",
+            page_subtitle="Gia đình, quyền xem và cài đặt.",
+            profile_user=user.sudo(),
+            profile_partner=user.partner_id.sudo(),
             family_users=family_users,
             access_map=access_map,
             back_url="/my/apps/expenses",
+            show_bottom_nav=True,
         ))
 
     @http.route("/my/profile/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
@@ -68,7 +65,7 @@ class FamilyPortalCore(http.Controller):
         partner.write(partner_vals)
 
         access_model = request.env["dt.family.access"].sudo()
-        all_users = request.env["res.users"].sudo().search([("id", "!=", user.id), ("share", "=", False), ("active", "=", True)])
+        all_users = user.get_family_candidate_users()
         existing = {acc.viewer_user_id.id: acc for acc in user.sudo().dt_family_access_ids}
         for other_user in all_users:
             allow_expense = request.params.get(f"family_expense_{other_user.id}") == "on"

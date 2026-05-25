@@ -10,6 +10,8 @@
                 <field name="display_name"/>
                 <field name="entry_type"/>
                 <field name="category_id"/>
+                <field name="wallet_id"/>
+                <field name="debt_flow"/>
                 <field name="amount"/>
                 <field name="signed_amount"/>
                 <field name="user_id"/>
@@ -30,11 +32,14 @@
                             <field name="code" readonly="1"/>
                             <field name="entry_type"/>
                             <field name="adjustment_direction"/>
+                            <field name="debt_flow"/>
+                            <field name="debt_id" readonly="1"/>
                             <field name="expense_date"/>
                             <field name="accounting_month"/>
                             <field name="category_id"/>
                         </group>
                         <group>
+                            <field name="wallet_id"/>
                             <field name="amount"/>
                             <field name="currency_id"/>
                             <field name="signed_amount" readonly="1"/>
@@ -56,6 +61,123 @@
         <field name="res_model">dt.expense.entry</field>
         <field name="view_mode">list,form</field>
     </record>
+
+    <record id="view_dt_expense_wallet_tree" model="ir.ui.view">
+        <field name="name">dt.expense.wallet.tree</field>
+        <field name="model">dt.expense.wallet</field>
+        <field name="arch" type="xml">
+            <list string="Nguồn tiền">
+                <field name="sequence" widget="handle"/>
+                <field name="icon"/>
+                <field name="name"/>
+                <field name="user_id"/>
+                <field name="opening_balance"/>
+                <field name="balance"/>
+                <field name="entry_count"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_dt_expense_wallet_form" model="ir.ui.view">
+        <field name="name">dt.expense.wallet.form</field>
+        <field name="model">dt.expense.wallet</field>
+        <field name="arch" type="xml">
+            <form string="Nguồn tiền">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="code" readonly="1"/>
+                        <field name="icon"/>
+                        <field name="sequence"/>
+                        <field name="user_id"/>
+                        <field name="currency_id"/>
+                        <field name="opening_balance"/>
+                        <field name="opening_date"/>
+                        <field name="balance" readonly="1"/>
+                        <field name="entry_count" readonly="1"/>
+                        <field name="active"/>
+                        <field name="note"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_dt_expense_wallet" model="ir.actions.act_window">
+        <field name="name">Nguồn tiền</field>
+        <field name="res_model">dt.expense.wallet</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_dt_expense_debt_tree" model="ir.ui.view">
+        <field name="name">dt.expense.debt.tree</field>
+        <field name="model">dt.expense.debt</field>
+        <field name="arch" type="xml">
+            <list string="Nợ">
+                <field name="debt_date"/>
+                <field name="display_name"/>
+                <field name="debt_type"/>
+                <field name="counterparty"/>
+                <field name="amount"/>
+                <field name="paid_amount"/>
+                <field name="remaining_amount"/>
+                <field name="wallet_id"/>
+                <field name="user_id"/>
+                <field name="state"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_dt_expense_debt_form" model="ir.ui.view">
+        <field name="name">dt.expense.debt.form</field>
+        <field name="model">dt.expense.debt</field>
+        <field name="arch" type="xml">
+            <form string="Khoản nợ">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="code" readonly="1"/>
+                            <field name="debt_type"/>
+                            <field name="counterparty"/>
+                            <field name="name"/>
+                            <field name="debt_date"/>
+                            <field name="due_date"/>
+                            <field name="state"/>
+                        </group>
+                        <group>
+                            <field name="wallet_id"/>
+                            <field name="amount"/>
+                            <field name="paid_amount" readonly="1"/>
+                            <field name="remaining_amount" readonly="1"/>
+                            <field name="currency_id"/>
+                            <field name="user_id"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <group><field name="note"/></group>
+                    <notebook>
+                        <page string="Giao dịch nợ">
+                            <field name="entry_ids" readonly="1">
+                                <list>
+                                    <field name="expense_date"/>
+                                    <field name="debt_flow"/>
+                                    <field name="wallet_id"/>
+                                    <field name="amount"/>
+                                    <field name="signed_amount"/>
+                                    <field name="active"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_dt_expense_debt" model="ir.actions.act_window">
+        <field name="name">Nợ</field>
+        <field name="res_model">dt.expense.debt</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
     <record id="view_dt_expense_category_tree" model="ir.ui.view">
         <field name="name">dt.expense.category.tree</field>
         <field name="model">dt.expense.category</field>
@@ -108,6 +230,8 @@
     </record>
     <menuitem id="menu_dt_expense_root" name="Family Expense" parent="dt_core.menu_dt_root" sequence="30"/>
     <menuitem id="menu_dt_expense_entry" name="Giao dịch" parent="menu_dt_expense_root" action="action_dt_expense_entry" sequence="10"/>
+    <menuitem id="menu_dt_expense_wallet" name="Nguồn tiền" parent="menu_dt_expense_root" action="action_dt_expense_wallet" sequence="15"/>
+    <menuitem id="menu_dt_expense_debt" name="Nợ" parent="menu_dt_expense_root" action="action_dt_expense_debt" sequence="18"/>
     <menuitem id="menu_dt_expense_category" name="Danh mục" parent="menu_dt_expense_root" action="action_dt_expense_category" sequence="20"/>
     <menuitem id="menu_dt_expense_suggestion" name="Gợi ý tiêu đề" parent="menu_dt_expense_root" action="action_dt_expense_title_suggestion" sequence="30"/>
 </odoo>

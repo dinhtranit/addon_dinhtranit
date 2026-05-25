@@ -16,13 +16,14 @@ class FamilyMedia(models.Model):
     code = fields.Char(copy=False, index=True, default="New")
     res_model = fields.Char(required=True, index=True)
     res_id = fields.Integer(required=True, index=True)
-    owner_user_id = fields.Many2one("res.users", required=True, default=lambda self: self.env.user)
+    owner_user_id = fields.Many2one("res.users", required=True, default=lambda self: self.env.user, index=True)
     owner_partner_id = fields.Many2one("res.partner", related="owner_user_id.partner_id", store=True)
     attachment_id = fields.Many2one("ir.attachment", required=True, ondelete="cascade")
     media_type = fields.Selection(
         [("image", "Image"), ("video", "Video"), ("file", "File")],
         required=True,
         default="image",
+        index=True,
     )
     original_filename = fields.Char()
     mimetype = fields.Char()
@@ -64,17 +65,18 @@ class FamilyMedia(models.Model):
 
     @api.model
     def create_from_uploads(self, uploads, record, owner_user=None, mark_first_cover=False):
-        """Create shared media rows from portal uploads.
+        """Create media rows from portal uploads.
 
-        Current design choice:
-        - Keep Odoo attachments as the only real storage.
-        - Do NOT copy files to an external folder yet, to avoid doubling disk usage.
-        - planned_storage_path is only a future hint, based on settings, for the phase when
-          the owner wants to sync to cloud or a separate disk.
+        Files are stored once in private Odoo attachments. The public `/web/content` URL is
+        intentionally not exposed because it often fails for portal/private attachments. The
+        portal uses `/my/family/media/<id>/content`, which checks family permission first and
+        then streams image/video bytes with Range support.
         """
         owner_user = owner_user or self.env.user
         created = self.browse()
-        existing_count = self.search_count([
+        if not record or not record.exists():
+            return created
+        existing_count = self.sudo().search_count([
             ("res_model", "=", record._name),
             ("res_id", "=", record.id),
         ])
@@ -97,7 +99,7 @@ class FamilyMedia(models.Model):
                 "public": False,
                 "type": "binary",
             })
-            media_vals = {
+            created |= self.sudo().create({
                 "name": self._clean_label(Path(filename).stem) or filename,
                 "res_model": record._name,
                 "res_id": record.id,
@@ -109,28 +111,47 @@ class FamilyMedia(models.Model):
                 "file_size": len(content),
                 "sequence": seq_base + idx,
                 "is_cover": mark_first_cover and idx == 0 and existing_count == 0,
-            }
-            created |= self.create(media_vals)
+            })
         return created
 
     @api.model
     def search_for_record(self, record):
-        return self.search([
+        if not record or not record.exists():
+            return self.browse()
+        return self.sudo().search([
             ("res_model", "=", record._name),
             ("res_id", "=", record.id),
         ], order="is_cover desc, sequence, id")
 
+    def can_read(self, user=None):
+        self.ensure_one()
+        user = user or self.env.user
+        if user.has_group("base.group_system") or self.owner_user_id == user:
+            return True
+        if not self.res_model or not self.res_id:
+            return False
+        try:
+            record_model = self.env[self.res_model].sudo()
+        except KeyError:
+            return False
+        record = record_model.browse(self.res_id)
+        if not record.exists():
+            return False
+        if hasattr(record, "can_view"):
+            return bool(record.can_view(user))
+        return False
+
     def image_url(self):
         self.ensure_one()
-        return f"/web/image/ir.attachment/{self.attachment_id.id}/datas"
+        return "/my/family/media/%s/content" % self.id
 
     def stream_url(self):
         self.ensure_one()
-        return f"/web/content/{self.attachment_id.id}?download=false"
+        return "/my/family/media/%s/content" % self.id
 
     def download_url(self):
         self.ensure_one()
-        return f"/web/content/{self.attachment_id.id}?download=true"
+        return "/my/family/media/%s/content?download=1" % self.id
 
     def _build_planned_storage_path(self, vals, folder_pattern):
         res_model = vals.get("res_model") or "record"

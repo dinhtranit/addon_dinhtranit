@@ -93,17 +93,11 @@ class DTMemoireDiary(models.Model):
     def can_view(self, user=None):
         self.ensure_one()
         user = user or self.env.user
-        if self.user_id == user:
+        if self.user_id == user or user.has_group("base.group_system"):
             return True
-        if not user.can_view_memory_from(self.user_id):
+        if self.privacy == "private":
             return False
-        if self.privacy == "public":
-            return True
-        if self.privacy == "family" and self.user_id.company_id == user.company_id:
-            return True
-        if self.privacy == "shared" and user.partner_id in self.shared_partner_ids:
-            return True
-        return False
+        return bool(user.can_view_memory_from(self.user_id))
 
     def get_emotion_icon(self):
         return {"joyful": "😊", "loved": "❤️", "grateful": "🙏", "nostalgic": "🥺", "proud": "🏆", "excited": "🎊", "peaceful": "🕊️"}.get(self.emotion, "📔")
