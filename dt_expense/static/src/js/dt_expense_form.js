@@ -215,8 +215,14 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
     _updateState() {
         const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         const isAdjustment = currentType === 'adjustment';
-        this.categoryFields.forEach((field) => { field.style.display = isAdjustment ? 'none' : ''; });
-        if (this.adjustmentField) { this.adjustmentField.style.display = isAdjustment ? '' : 'none'; }
+        this.categoryFields.forEach((field) => {
+            if (isAdjustment) { field.setAttribute('hidden', 'hidden'); }
+            else { field.removeAttribute('hidden'); }
+        });
+        if (this.adjustmentField) {
+            if (isAdjustment) { this.adjustmentField.removeAttribute('hidden'); }
+            else { this.adjustmentField.setAttribute('hidden', 'hidden'); }
+        }
         if (this.categorySelect) {
             this.categorySelect.required = !isAdjustment;
             Array.from(this.categorySelect.options).forEach((option) => {
@@ -306,8 +312,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
 publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
     selector: '.dt-expense-page',
     events: {
-        'click [data-balance-card="1"]': '_showBalanceForm',
-        'click [data-balance-cancel="1"]': '_hideBalanceForm',
         'click [data-payment-toggle]': '_onPaymentToggle',
         'click [data-month-nav-dir]': '_onMonthNavClick',
         'click [data-filter-toggle="1"]': '_onFilterToggle',
@@ -315,10 +319,19 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
         'click [data-member-close="1"]': '_onMemberClose',
         'click [data-member-apply="1"]': '_onMemberApply',
         'change select[name="scope"]': '_onScopeChange',
+        'click [data-date-picker-open="1"]': '_onDatePickerOpen',
+        'click [data-date-close="1"]': '_onDatePickerClose',
+        'click [data-date-tab]': '_onDateTabClick',
+        'click [data-date-apply="1"]': '_onDateApply',
+        'click [data-cat-filter-open="1"]': '_onCatFilterOpen',
+        'click [data-cat-filter-close="1"]': '_onCatFilterClose',
+        'click [data-cat-filter-tile="1"]': '_onCatFilterTilePick',
+        'click [data-cat-filter-group="1"]': '_onCatFilterGroupPick',
+        'click [data-cat-filter-clear="1"]': '_onCatFilterClear',
+        'input [data-cat-filter-search="1"]': '_onCatFilterSearch',
     },
 
     start() {
-        this.balanceForm = this.el.querySelector('[data-balance-form="1"]');
         this.entryList = this.el.querySelector('[data-entry-list="1"]');
         this.sentinel = this.el.querySelector('[data-scroll-sentinel="1"]');
         this.loadingEl = this.el.querySelector('[data-scroll-loading="1"]');
@@ -378,32 +391,35 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
         if (form) { form.classList.toggle('d-none'); }
     },
 
-    _showBalanceForm(ev) {
-        ev.preventDefault();
-        if (!this.balanceForm) { return; }
-        this.balanceForm.classList.remove('d-none');
-        const input = this.balanceForm.querySelector('input[name="current_amount"]');
-        if (input) { input.focus(); }
-    },
-
-    _hideBalanceForm(ev) {
-        if (ev) { ev.preventDefault(); }
-        if (this.balanceForm) { this.balanceForm.classList.add('d-none'); }
-    },
-
     _onMonthNavClick(ev) {
         ev.preventDefault();
         const dir = parseInt(ev.currentTarget.dataset.monthNavDir, 10);
         const nav = this.el.querySelector('[data-month-nav="1"]');
         if (!nav || !nav.dataset.dateFrom) { return; }
+        const kind = nav.dataset.periodKind || 'month';
+        const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const parts = nav.dataset.dateFrom.split('-').map((n) => parseInt(n, 10));
-        let year = parts[0];
-        let month = parts[1] + dir;
-        if (month > 12) { year += 1; month = 1; }
-        if (month < 1) { year -= 1; month = 12; }
-        const lastDay = new Date(year, month, 0).getDate();
-        const newDateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
-        const newDateTo = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        let newDateFrom, newDateTo;
+        if (kind === 'year') {
+            const y = parts[0] + dir;
+            newDateFrom = `${y}-01-01`;
+            newDateTo = `${y}-12-31`;
+        } else if (kind === 'week') {
+            const start = new Date(parts[0], parts[1] - 1, parts[2]);
+            start.setDate(start.getDate() + dir * 7);
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            newDateFrom = fmt(start);
+            newDateTo = fmt(end);
+        } else {
+            let year = parts[0];
+            let month = parts[1] + dir;
+            if (month > 12) { year += 1; month = 1; }
+            if (month < 1) { year -= 1; month = 12; }
+            const lastDay = new Date(year, month, 0).getDate();
+            newDateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
+            newDateTo = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        }
         const url = new URL(window.location.href);
         url.searchParams.set('date_from', newDateFrom);
         url.searchParams.set('date_to', newDateTo);
@@ -455,5 +471,128 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
             this._loading = false;
             if (this.loadingEl) { this.loadingEl.classList.add('d-none'); }
         }
+    },
+
+    _onDatePickerOpen(ev) {
+        ev.preventDefault();
+        const dlg = this.el.querySelector('[data-date-modal="1"]');
+        if (dlg) { dlg.classList.remove('d-none'); document.body.style.overflow = 'hidden'; }
+    },
+
+    _onDatePickerClose(ev) {
+        if (ev) { ev.preventDefault(); }
+        const dlg = this.el.querySelector('[data-date-modal="1"]');
+        if (dlg) { dlg.classList.add('d-none'); document.body.style.overflow = ''; }
+    },
+
+    _onDateTabClick(ev) {
+        ev.preventDefault();
+        const tab = ev.currentTarget.dataset.dateTab;
+        const dlg = this.el.querySelector('[data-date-modal="1"]');
+        if (!dlg) { return; }
+        dlg.querySelectorAll('[data-date-tab]').forEach((b) => b.classList.toggle('is-active', b.dataset.dateTab === tab));
+        dlg.querySelectorAll('[data-date-panel]').forEach((p) => p.classList.toggle('d-none', p.dataset.datePanel !== tab));
+    },
+
+    _onDateApply(ev) {
+        ev.preventDefault();
+        const dlg = this.el.querySelector('[data-date-modal="1"]');
+        if (!dlg) { return; }
+        const activeTab = dlg.querySelector('[data-date-tab].is-active')?.dataset.dateTab || 'month';
+        const input = dlg.querySelector(`[data-date-input="${activeTab}"]`);
+        if (!input || !input.value) { return; }
+        let dateFrom, dateTo;
+        if (activeTab === 'month') {
+            const [y, m] = input.value.split('-').map(Number);
+            const last = new Date(y, m, 0).getDate();
+            dateFrom = `${y}-${String(m).padStart(2, '0')}-01`;
+            dateTo = `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+        } else if (activeTab === 'year') {
+            const y = parseInt(input.value, 10);
+            if (!y) { return; }
+            dateFrom = `${y}-01-01`;
+            dateTo = `${y}-12-31`;
+        } else if (activeTab === 'week') {
+            // input.value: YYYY-Www
+            const [yStr, wStr] = input.value.split('-W');
+            const y = parseInt(yStr, 10);
+            const w = parseInt(wStr, 10);
+            const jan4 = new Date(y, 0, 4);
+            const jan4Day = jan4.getDay() || 7;
+            const week1Mon = new Date(y, 0, 4 - jan4Day + 1);
+            const monday = new Date(week1Mon);
+            monday.setDate(week1Mon.getDate() + (w - 1) * 7);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            dateFrom = fmt(monday);
+            dateTo = fmt(sunday);
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.set('date_from', dateFrom);
+        url.searchParams.set('date_to', dateTo);
+        window.location.href = url.toString();
+    },
+
+    _onCatFilterOpen(ev) {
+        ev.preventDefault();
+        const dlg = this.el.querySelector('[data-filter-cat-modal="1"]');
+        if (dlg) { dlg.classList.remove('d-none'); document.body.style.overflow = 'hidden'; }
+    },
+
+    _onCatFilterClose(ev) {
+        if (ev) { ev.preventDefault(); }
+        const dlg = this.el.querySelector('[data-filter-cat-modal="1"]');
+        if (dlg) { dlg.classList.add('d-none'); document.body.style.overflow = ''; }
+    },
+
+    _submitFilterForm() {
+        const form = this.el.querySelector('[data-filter-form="1"]');
+        if (form) { form.submit(); }
+    },
+
+    _onCatFilterTilePick(ev) {
+        ev.preventDefault();
+        const btn = ev.currentTarget;
+        const form = this.el.querySelector('[data-filter-form="1"]');
+        if (!form) { return; }
+        form.querySelector('[data-cat-filter-category="1"]').value = btn.dataset.categoryId || '';
+        form.querySelector('[data-cat-filter-parent="1"]').value = '';
+        this._submitFilterForm();
+    },
+
+    _onCatFilterGroupPick(ev) {
+        ev.preventDefault();
+        const btn = ev.currentTarget;
+        const form = this.el.querySelector('[data-filter-form="1"]');
+        if (!form) { return; }
+        form.querySelector('[data-cat-filter-parent="1"]').value = btn.dataset.parentId || '';
+        form.querySelector('[data-cat-filter-category="1"]').value = '';
+        this._submitFilterForm();
+    },
+
+    _onCatFilterClear(ev) {
+        ev.preventDefault();
+        const form = this.el.querySelector('[data-filter-form="1"]');
+        if (!form) { return; }
+        form.querySelector('[data-cat-filter-parent="1"]').value = '';
+        form.querySelector('[data-cat-filter-category="1"]').value = '';
+        this._submitFilterForm();
+    },
+
+    _onCatFilterSearch(ev) {
+        const q = (ev.currentTarget.value || '').trim().toLowerCase();
+        const dlg = this.el.querySelector('[data-filter-cat-modal="1"]');
+        if (!dlg) { return; }
+        dlg.querySelectorAll('[data-cat-filter-tile="1"]').forEach((tile) => {
+            const name = (tile.dataset.catName || '').toLowerCase();
+            tile.style.display = !q || name.includes(q) ? '' : 'none';
+        });
+        dlg.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
+            const groupName = (group.dataset.catName || '').toLowerCase();
+            const anyTile = Array.from(group.querySelectorAll('[data-cat-filter-tile="1"]')).some((n) => n.style.display !== 'none');
+            const matchGroup = !q || groupName.includes(q);
+            group.style.display = (anyTile || matchGroup) ? '' : 'none';
+        });
     },
 });

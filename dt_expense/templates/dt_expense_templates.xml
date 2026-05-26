@@ -4,26 +4,6 @@
         <t t-call="dt_core.portal_shell">
             <section class="dt-expense-page dt-expense-home pb-4">
 
-                <form action="/my/apps/expenses/balance/save" method="post" class="dt-panel d-none" data-balance-form="1">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <label class="dt-field">
-                        <span>Cập nhật số dư nguồn tiền</span>
-                        <select name="wallet_id">
-                            <t t-foreach="wallets" t-as="wallet">
-                                <option t-att-value="wallet.id"><t t-esc="wallet.icon or '💳'"/> <t t-esc="wallet.name"/> · <t t-esc="wallet.balance_label"/></option>
-                            </t>
-                        </select>
-                    </label>
-                    <label class="dt-field">
-                        <span>Số dư thực tế</span>
-                        <input type="text" name="current_amount" t-att-value="current_balance_input" data-money-input="1"/>
-                    </label>
-                    <div class="dt-inline-actions">
-                        <button type="submit" class="dt-btn dt-btn--primary">Lưu cập nhật</button>
-                        <button type="button" class="dt-btn dt-btn--ghost" data-balance-cancel="1">Hủy</button>
-                    </div>
-                </form>
-
                 <div class="dt-shortcut-panel">
                     <a href="/my/apps/expenses/new" class="dt-shortcut"><span>✍️</span><strong>Nhập GD</strong></a>
                     <a href="/my/apps/expenses/history" class="dt-shortcut"><span>📊</span><strong>Biến động</strong></a>
@@ -81,6 +61,7 @@
                 <form action="/my/apps/expenses/save" method="post" enctype="multipart/form-data" class="dt-form-stack" data-expense-form="1">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <input t-if="entry" type="hidden" name="entry_id" t-att-value="entry.id"/>
+                    <input t-if="return_to" type="hidden" name="return_to" t-att-value="return_to"/>
                     <input type="hidden" name="entry_type" t-att-value="active_tab" data-entry-type-hidden="1"/>
 
                     <div class="dt-segment" data-entry-tabbar="1">
@@ -89,11 +70,11 @@
                         <!-- <button type="button" t-attf-class="#{'is-active' if active_tab == 'adjustment' else ''}" data-entry-tab="adjustment">Điều chỉnh</button> -->
                     </div>
 
-                    <div class="dt-quick-cats" data-category-field="1">
+                    <div class="dt-quick-cats" data-category-field="1" t-att-hidden="'hidden' if active_tab == 'adjustment' else None">
                         <div class="dt-block-title">Danh mục</div>
                         <div class="dt-quick-cats__row">
                             <t t-foreach="quick_categories" t-as="cat">
-                                <button type="button" t-attf-class="dt-quick-cat #{'is-active' if entry and entry.category_id.id == cat.id else ''}" t-att-data-category-id="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'">
+                                <button type="button" t-attf-class="dt-quick-cat #{'is-active' if entry and entry.category_id.id == cat.id else ''}" t-att-data-category-id="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" t-att-hidden="'hidden' if cat.category_type != active_tab else None">
                                     <span><t t-esc="cat.icon or '💸'"/></span><small><t t-esc="cat.name"/></small>
                                 </button>
                             </t>
@@ -165,7 +146,7 @@
                                 </t>
                             </select>
                         </label>
-                        <div class="dt-line-field" data-adjustment-only="1">
+                        <div class="dt-line-field" data-adjustment-only="1" t-att-hidden="None if active_tab == 'adjustment' else 'hidden'">
                             <span>↔️ Điều chỉnh</span>
                             <div class="dt-radio-line">
                                 <label><input type="radio" name="adjustment_direction" value="increase" t-att-checked="'checked' if not entry or entry.adjustment_direction == 'increase' else None"/> Tăng</label>
@@ -199,6 +180,7 @@
                 </form>
                 <form t-if="entry" t-attf-action="/my/apps/expenses/#{entry.id}/delete" method="post" class="dt-delete-form" onsubmit="return confirm('Xóa giao dịch này?');">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input t-if="return_to" type="hidden" name="return_to" t-att-value="return_to"/>
                     <button type="submit" class="dt-btn dt-btn--danger-ghost">🗑 Xóa giao dịch</button>
                 </form>
             </section>
@@ -223,7 +205,7 @@
                             <div class="dt-media-tile"><img t-if="media.media_type == 'image'" t-att-src="media.image_url()"/><video t-if="media.media_type == 'video'" t-att-src="media.stream_url()" controls="controls" preload="metadata"></video></div>
                         </t>
                     </div>
-                    <div class="dt-inline-actions" t-if="can_edit"><a t-att-href="'/my/apps/expenses/%s/edit' % entry.id" class="dt-btn dt-btn--primary">Sửa</a><form t-att-action="'/my/apps/expenses/%s/delete' % entry.id" method="post"><input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/><button type="submit" class="dt-btn dt-btn--ghost">Xóa</button></form></div>
+                    <div class="dt-inline-actions" t-if="can_edit"><a t-att-href="'/my/apps/expenses/%s/edit?return_to=%s' % (entry.id, edit_return or '')" class="dt-btn dt-btn--primary">Sửa</a><form t-att-action="'/my/apps/expenses/%s/delete' % entry.id" method="post"><input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/><input t-if="edit_return" type="hidden" name="return_to" t-att-value="back_url"/><button type="submit" class="dt-btn dt-btn--ghost">Xóa</button></form></div>
                     <div class="dt-empty-state" t-if="not can_edit and scope == 'family'">Chế độ xem gia đình chỉ đọc.</div>
                 </div>
             </section>
@@ -291,9 +273,23 @@
                 <div class="dt-list-stack">
                     <t t-foreach="wallets" t-as="wallet">
                         <div class="dt-wallet-card">
-                            <div><span class="dt-category-icon"><t t-esc="wallet.icon or '💳'"/></span></div>
-                            <div><h2><t t-esc="wallet.name"/></h2><p><t t-esc="wallet.entry_count"/> giao dịch</p></div>
-                            <div class="dt-wallet-card__right"><strong><t t-esc="wallet.balance_label"/></strong><a t-att-href="'/my/apps/expenses/wallets/%s/edit' % wallet.id">Sửa</a></div>
+                            <div class="dt-wallet-card__main">
+                                <span class="dt-category-icon"><t t-esc="wallet.icon or '💳'"/></span>
+                                <div class="dt-wallet-card__info"><h2><t t-esc="wallet.name"/></h2><p><t t-esc="wallet.entry_count"/> giao dịch</p></div>
+                                <div class="dt-wallet-card__right"><strong><t t-esc="wallet.balance_label"/></strong></div>
+                            </div>
+                            <div class="dt-wallet-card__actions">
+                                <button type="button" class="dt-btn dt-btn--primary dt-btn--sm" t-attf-data-payment-toggle="wallet-#{wallet.id}">⚖️ Điều chỉnh số dư</button>
+                                <a t-att-href="'/my/apps/expenses/wallets/%s/edit' % wallet.id" class="dt-wallet-edit" aria-label="Sửa nguồn tiền">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                                </a>
+                            </div>
+                            <form action="/my/apps/expenses/balance/save" method="post" class="dt-mini-payment d-none" t-attf-data-payment-form="wallet-#{wallet.id}">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <input type="hidden" name="wallet_id" t-att-value="wallet.id"/>
+                                <input type="text" name="current_amount" t-att-value="request.env['dt.expense.entry'].format_amount_for_input(wallet.balance)" data-money-input="1" placeholder="Số dư thực tế"/>
+                                <button type="submit" class="dt-btn dt-btn--primary dt-btn--sm">Lưu</button>
+                            </form>
                         </div>
                     </t>
                 </div>
@@ -382,7 +378,7 @@
         <t t-foreach="entries" t-as="entry">
             <t t-set="is_own" t-value="entry.user_id.id == request.env.user.id and entry.entry_type != 'debt'"/>
             <div class="dt-history-row">
-                <a class="dt-history-rowlink" t-att-href="'/my/apps/expenses/%s/view?scope=%s' % (entry.id, scope)" aria-label="Xem chi tiết"></a>
+                <a class="dt-history-rowlink" t-att-href="'/my/apps/expenses/%s/view?scope=%s&amp;return_to=%s' % (entry.id, scope, return_to_encoded or '')" aria-label="Xem chi tiết"></a>
                 <div class="dt-history-icon dt-history-icon--media">
                     <t t-if="entry.cover_media_id and entry.cover_media_id.media_type == 'image'"><img t-att-src="entry.cover_media_id.image_url()"/></t>
                     <t t-elif="entry.cover_media_id and entry.cover_media_id.media_type == 'video'"><video t-att-src="entry.cover_media_id.stream_url()" preload="metadata" muted="muted" playsinline="playsinline"></video></t>
@@ -393,7 +389,7 @@
                     <p><span t-if="entry.category_id"><t t-esc="entry.category_id.name"/> · </span><span t-if="entry.entry_type == 'debt'"><t t-esc="entry.get_debt_flow_label()"/> · </span><t t-esc="entry.user_id.name"/> · <t t-esc="entry.wallet_id.name if entry.wallet_id else ''"/></p>
                 </div>
                 <div t-attf-class="dt-history-amount #{entry.amount_css_class}"><t t-esc="entry.amount_label"/></div>
-                <a t-if="is_own" t-att-href="'/my/apps/expenses/%s/edit' % entry.id" class="dt-history-edit" aria-label="Sửa giao dịch" title="Sửa">
+                <a t-if="is_own" t-att-href="'/my/apps/expenses/%s/edit?return_to=%s' % (entry.id, return_to_encoded or '')" class="dt-history-edit" aria-label="Sửa giao dịch" title="Sửa">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
                 </a>
             </div>
@@ -403,6 +399,36 @@
     <template id="portal_expense_history" name="Expense History">
         <t t-call="dt_core.portal_shell">
             <section class="dt-expense-page dt-history-page">
+                <div class="dt-month-card dt-month-card--nav" data-month-nav="1" t-att-data-date-from="date_from" t-att-data-date-to="date_to" t-att-data-period-kind="period_kind or 'month'"><a href="#" data-month-nav-dir="-1">‹</a><button type="button" class="dt-month-card__label dt-month-card__label--btn" data-date-picker-open="1"><strong>📅 <t t-esc="month_label"/></strong></button><a href="#" data-month-nav-dir="1">›</a></div>
+                <div class="dt-date-modal d-none" data-date-modal="1" role="dialog" aria-modal="true">
+                    <div class="dt-date-modal__backdrop" data-date-close="1"></div>
+                    <div class="dt-date-modal__sheet">
+                        <div class="dt-date-modal__head">
+                            <strong>Chọn khoảng thời gian</strong>
+                            <button type="button" class="dt-date-modal__close" data-date-close="1" aria-label="Đóng">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <div class="dt-date-modal__tabs">
+                            <button type="button" class="is-active" data-date-tab="month">Tháng</button>
+                            <button type="button" data-date-tab="week">Tuần</button>
+                            <button type="button" data-date-tab="year">Năm</button>
+                        </div>
+                        <div class="dt-date-modal__panel" data-date-panel="month">
+                            <label>Chọn tháng <input type="month" data-date-input="month" t-att-value="(date_from or '')[:7]"/></label>
+                        </div>
+                        <div class="dt-date-modal__panel d-none" data-date-panel="week">
+                            <label>Chọn tuần <input type="week" data-date-input="week"/></label>
+                        </div>
+                        <div class="dt-date-modal__panel d-none" data-date-panel="year">
+                            <label>Chọn năm <input type="number" min="2000" max="2100" data-date-input="year" t-att-value="(date_from or '')[:4]"/></label>
+                        </div>
+                        <div class="dt-date-modal__footer">
+                            <button type="button" class="dt-btn dt-btn--ghost" data-date-close="1">Hủy</button>
+                            <button type="button" class="dt-btn dt-btn--primary" data-date-apply="1">Áp dụng</button>
+                        </div>
+                    </div>
+                </div>
                 <div class="dt-month-totals-card dt-month-totals-card--4col">
                     <div><span>Thu</span><b class="dt-amount-positive"><t t-esc="total_income_label"/></b></div>
                     <div><span>Chi</span><b class="dt-amount-negative"><t t-esc="total_expense_label"/></b></div>
@@ -427,8 +453,51 @@
                     <div class="dt-filter-advanced d-none" data-filter-advanced="1">
                         <select name="scope"><option value="mine" t-att-selected="'selected' if scope == 'mine' else None">Của tôi</option><option value="family" t-att-selected="'selected' if scope == 'family' else None">Gia đình</option></select>
                         <select name="entry_type"><option value="">Tất cả loại</option><option value="expense" t-att-selected="'selected' if entry_type == 'expense' else None">Chi</option><option value="income" t-att-selected="'selected' if entry_type == 'income' else None">Thu</option><option value="adjustment" t-att-selected="'selected' if entry_type == 'adjustment' else None">Điều chỉnh</option><option value="debt" t-att-selected="'selected' if entry_type == 'debt' else None">Nợ</option></select>
-                        <select name="parent_id"><option value="">Tất cả nhóm danh mục</option><t t-foreach="parent_categories" t-as="pcat"><option t-att-value="pcat.id" t-att-selected="'selected' if parent_id == pcat.id else None"><t t-esc="pcat.icon or '🗂️'"/> <t t-esc="pcat.name"/></option></t></select>
-                        <select name="category_id"><option value="">Tất cả danh mục</option><t t-foreach="child_categories" t-as="ccat"><option t-att-value="ccat.id" t-att-selected="'selected' if category_id == ccat.id else None"><t t-esc="ccat.icon or '💸'"/> <t t-esc="ccat.name"/></option></t></select>
+                        <input type="hidden" name="parent_id" t-att-value="parent_id or ''" data-cat-filter-parent="1"/>
+                        <input type="hidden" name="category_id" t-att-value="category_id or ''" data-cat-filter-category="1"/>
+                        <button type="button" class="dt-cat-filter-trigger" data-cat-filter-open="1">
+                            <span class="dt-cat-filter-trigger__icon">🗂️</span>
+                            <span class="dt-cat-filter-trigger__label" data-cat-filter-label="1">
+                                <t t-set="_sel_leaf" t-value="child_categories.filtered(lambda c: c.id == category_id)[:1]"/>
+                                <t t-set="_sel_parent" t-value="parent_categories.filtered(lambda p: p.id == parent_id)[:1]"/>
+                                <t t-if="_sel_leaf"><t t-esc="_sel_leaf.icon or '💸'"/> <t t-esc="_sel_leaf.name"/></t>
+                                <t t-elif="_sel_parent"><t t-esc="_sel_parent.icon or '🗂️'"/> <t t-esc="_sel_parent.name"/> (nhóm)</t>
+                                <t t-else="">Tất cả danh mục</t>
+                            </span>
+                            <span class="dt-cat-filter-trigger__caret">▾</span>
+                        </button>
+                        <div class="dt-cat-modal d-none" data-filter-cat-modal="1" role="dialog" aria-modal="true">
+                            <div class="dt-cat-modal__sheet">
+                                <div class="dt-cat-modal__head">
+                                    <strong>Chọn danh mục lọc</strong>
+                                    <button type="button" class="dt-cat-modal__close" data-cat-filter-close="1" aria-label="Đóng">×</button>
+                                </div>
+                                <div class="dt-cat-modal__toolbar">
+                                    <label class="dt-cat-search"><span>🔍</span><input type="search" placeholder="Tìm kiếm" data-cat-filter-search="1"/></label>
+                                    <button type="button" class="dt-cat-create" data-cat-filter-clear="1">↺ Tất cả</button>
+                                </div>
+                                <div class="dt-cat-modal__body">
+                                    <t t-foreach="parent_categories" t-as="parent">
+                                        <t t-set="children" t-value="child_categories.filtered(lambda c: c.parent_id.id == parent.id)"/>
+                                        <div t-if="children" t-attf-class="dt-cat-group dt-cat-group--#{parent.category_type or 'mixed'}" data-cat-group="1" t-att-data-cat-name="parent.name">
+                                            <button type="button" class="dt-cat-group__head dt-cat-group__head--btn" data-cat-filter-group="1" t-att-data-parent-id="parent.id" t-att-data-parent-name="parent.name">
+                                                <span class="dt-cat-group__icon"><t t-esc="parent.icon or '🗂️'"/></span>
+                                                <span class="dt-cat-group__name"><t t-esc="parent.name"/></span>
+                                                <span class="dt-cat-group__pick">Chọn cả nhóm →</span>
+                                            </button>
+                                            <div class="dt-cat-group__tiles">
+                                                <t t-foreach="children" t-as="cat">
+                                                    <button type="button" t-attf-class="dt-cat-tile #{'is-active' if category_id == cat.id else ''}" data-cat-filter-tile="1" t-att-data-category-id="cat.id" t-att-data-cat-name="cat.name">
+                                                        <span class="dt-cat-tile__icon"><t t-esc="cat.icon or '💸'"/></span>
+                                                        <span class="dt-cat-tile__name"><t t-esc="cat.name"/></span>
+                                                    </button>
+                                                </t>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
                         <select name="wallet_id"><option value="">Tất cả nguồn tiền</option><t t-foreach="wallets" t-as="wallet"><option t-att-value="wallet.id" t-att-selected="'selected' if wallet_id == wallet.id else None"><t t-esc="wallet.name"/></option></t></select>
                         <div t-if="family_members and len(family_members) > 1" t-attf-class="dt-filter-members #{'d-none' if scope != 'family' else ''}" data-member-filter="1">
                             <span class="dt-filter-members__label">Thành viên</span>
@@ -473,7 +542,7 @@
                         <button class="dt-btn dt-btn--ghost dt-filter-submit" type="submit">Lọc</button>
                     </div>
                 </form>
-                <div class="dt-month-card dt-month-card--nav" data-month-nav="1" t-att-data-date-from="date_from"><a href="#" data-month-nav-dir="-1">‹</a><div class="dt-month-card__label"><strong>📅 <t t-esc="month_label"/></strong></div><a href="#" data-month-nav-dir="1">›</a></div>   
+                
                 <div class="dt-history-list" data-entry-list="1">
                     <t t-call="dt_expense.portal_expense_history_entries_partial"/>
                 </div>

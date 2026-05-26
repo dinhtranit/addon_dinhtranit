@@ -3,7 +3,7 @@ import calendar
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 import json
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote as urlquote
 
 from odoo import fields, http
 from odoo.addons.portal.controllers.portal import pager as portal_pager
@@ -320,30 +320,41 @@ class FamilyExpensePortal(http.Controller):
         active_tab = entry_type if entry_type in ("expense", "income", "adjustment") else "expense"
         return request.render("dt_expense.portal_expense_form", self._entry_form_values(entry=False, active_tab=active_tab))
 
+    def _safe_return_to(self, return_to, fallback):
+        if return_to and isinstance(return_to, str) and return_to.startswith("/my/apps/"):
+            return return_to
+        return fallback
+
     @http.route("/my/apps/expenses/<int:entry_id>/view", type="http", auth="user", website=True)
-    def expense_view(self, entry_id, scope="mine", **kw):
+    def expense_view(self, entry_id, scope="mine", return_to="", **kw):
         user = request.env.user
         scope = scope if scope in ("mine", "family") else "mine"
         entry = self._entry_model().browse(entry_id)
+        back_url = self._safe_return_to(return_to, "/my/apps/expenses/history?scope=%s" % scope)
         if not entry.exists() or entry.user_id.id not in self._visible_user_ids(user, scope):
-            return request.redirect("/my/apps/expenses/history")
+            return request.redirect(back_url)
         can_edit = entry.user_id.id == user.id and entry.entry_type != "debt" and scope != "family"
         media_items = entry.get_media_items()
+        edit_return = urlquote(back_url, safe="")
         return request.render("dt_expense.portal_expense_view", self._base_values(
             page_title="Chi tiết giao dịch", page_subtitle=entry.expense_date.strftime("%d/%m/%Y") if entry.expense_date else "",
             entry=entry.sudo(), media_items=media_items, scope=scope, can_edit=can_edit,
-            back_url="/my/apps/expenses/history?scope=%s" % scope,
+            back_url=back_url, edit_return=edit_return,
         ))
 
     @http.route("/my/apps/expenses/<int:entry_id>/edit", type="http", auth="user", website=True)
-    def expense_edit(self, entry_id, **kw):
+    def expense_edit(self, entry_id, return_to="", **kw):
         entry = self._entry_model().browse(entry_id)
+        back_url = self._safe_return_to(return_to, "/my/apps/expenses/history")
         if not entry.exists() or entry.user_id.id != request.env.user.id or entry.entry_type == "debt":
-            return request.redirect("/my/apps/expenses/history")
-        return request.render("dt_expense.portal_expense_form", self._entry_form_values(entry=entry))
+            return request.redirect(back_url)
+        values = self._entry_form_values(entry=entry)
+        values["back_url"] = back_url
+        values["return_to"] = return_to or ""
+        return request.render("dt_expense.portal_expense_form", values)
 
     @http.route("/my/apps/expenses/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
-    def expense_save(self, entry_id=None, entry_type="expense", adjustment_direction="increase", name="", expense_date="", accounting_month="", category_id=None, wallet_id=None, amount="0", note="", **kw):
+    def expense_save(self, entry_id=None, entry_type="expense", adjustment_direction="increase", name="", expense_date="", accounting_month="", category_id=None, wallet_id=None, amount="0", note="", return_to="", **kw):
         user = request.env.user
         entry_model = self._entry_model()
         entry_type = entry_type if entry_type in ("expense", "income", "adjustment") else "expense"
@@ -378,7 +389,7 @@ class FamilyExpensePortal(http.Controller):
         else:
             entry = entry_model.create(vals)
         request.env["dt.media"].sudo().create_from_uploads(request.httprequest.files.getlist("media_files"), entry, owner_user=user, mark_first_cover=True)
-        return request.redirect("/my/apps/expenses/history")
+        return request.redirect(self._safe_return_to(return_to, "/my/apps/expenses/history"))
 
     @http.route("/my/apps/expenses/balance/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def expense_balance_save(self, current_amount="0", wallet_id=None, **kw):
@@ -386,15 +397,15 @@ class FamilyExpensePortal(http.Controller):
         wallet = self._wallet_model().browse(self._safe_int(wallet_id)) if wallet_id else self._wallet_model().get_default_wallet(user)
         if wallet.exists() and wallet.user_id.id == user.id:
             self._entry_model().create_balance_adjustment(self._parse_money(current_amount), user=user, wallet=wallet)
-        return request.redirect("/my/apps/expenses")
+        return request.redirect("/my/apps/expenses/wallets")
 
     @http.route("/my/apps/expenses/<int:entry_id>/delete", type="http", auth="user", website=True, methods=["POST"], csrf=True)
-    def expense_delete(self, entry_id, **kw):
+    def expense_delete(self, entry_id, return_to="", **kw):
         entry = self._entry_model().browse(entry_id)
         if entry.exists() and entry.user_id.id == request.env.user.id and entry.entry_type != "debt":
             request.env["dt.media"].sudo().search([("res_model", "=", entry._name), ("res_id", "=", entry.id)]).unlink()
             entry.unlink()
-        return request.redirect("/my/apps/expenses/history")
+        return request.redirect(self._safe_return_to(return_to, "/my/apps/expenses/history"))
 
     @http.route("/my/apps/expenses/categories", type="http", auth="user", website=True)
     def expense_categories(self, category_type="expense", **kw):
@@ -634,17 +645,33 @@ class FamilyExpensePortal(http.Controller):
         entries = all_entries[:per_page]
         has_more = len(all_entries) > per_page
         parents = self._category_model().search(self._category_domain(user, parent_only=True), order="category_type, sequence, id")
-        children_domain = self._category_domain(user, leaf_only=True)
-        if parent_value:
-            children_domain.append(("parent_id", "=", parent_value))
-        children = self._category_model().search(children_domain, order="sequence, id")
+        children = self._category_model().search(self._category_domain(user, leaf_only=True), order="sequence, id")
         family_members = request.env["res.users"].sudo().browse(self._visible_user_ids(user, "family"))
         wallets = self._wallet_model().search(self._wallet_domain(user, scope), order="sequence, id")
         df = self._parse_date(date_from)
-        month_label = df.strftime("Tháng %-m, %Y") if df else ""
+        dt = self._parse_date(date_to)
+        period_kind = "month"
+        if df and dt:
+            last_day = calendar.monthrange(df.year, df.month)[1]
+            if df.month == 1 and df.day == 1 and dt.month == 12 and dt.day == 31 and df.year == dt.year:
+                period_kind = "year"
+                month_label = "Năm %d" % df.year
+            elif (dt - df).days == 6 and df.weekday() == 0:
+                iso_year, iso_week, _ = df.isocalendar()
+                period_kind = "week"
+                month_label = "Tuần %d · %d" % (iso_week, iso_year)
+            elif df.day == 1 and dt.day == last_day and df.month == dt.month and df.year == dt.year:
+                month_label = df.strftime("Tháng %-m, %Y")
+            else:
+                month_label = "%s — %s" % (df.strftime("%d/%m"), dt.strftime("%d/%m/%Y"))
+        else:
+            month_label = df.strftime("Tháng %-m, %Y") if df else ""
         member_filter_active = (scope == 'family' and (member_ids_value or member_id)) and 1 or 0
         filter_count = len([x for x in [search, member_filter_active, entry_type, parent_id, category_id, wallet_id] if x])
-        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", entries=entries, has_more=has_more, next_offset=per_page, month_label=month_label, search=search, scope=scope, member_id=member_value, selected_member_ids=member_ids_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value, parent_categories=parents, child_categories=children, wallets=wallets, total_income_label=self._format_money(total_income, short=False), total_expense_label=self._format_money(total_expense, short=False), total_net_label=self._format_money(total_net, show_plus=True, short=False), filter_count=filter_count, back_url="/my/apps/expenses"))
+        qs = request.httprequest.query_string.decode() if request.httprequest.query_string else ""
+        return_to = "/my/apps/expenses/history" + (("?" + qs) if qs else "")
+        return_to_encoded = urlquote(return_to, safe="")
+        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", entries=entries, has_more=has_more, next_offset=per_page, month_label=month_label, search=search, scope=scope, member_id=member_value, selected_member_ids=member_ids_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value, parent_categories=parents, child_categories=children, wallets=wallets, total_income_label=self._format_money(total_income, short=False), total_expense_label=self._format_money(total_expense, short=False), total_net_label=self._format_money(total_net, show_plus=True, short=False), filter_count=filter_count, back_url="/my/apps/expenses", return_to_encoded=return_to_encoded, period_kind=period_kind))
 
     @http.route("/my/apps/expenses/history/entries", type="http", auth="user", website=True)
     def expense_history_entries(self, offset=0, scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", wallet_id="", **kw):
@@ -658,7 +685,11 @@ class FamilyExpensePortal(http.Controller):
         total = len(all_entries)
         entries = all_entries[offset_value:offset_value + per_page]
         has_more = offset_value + per_page < total
-        html = request.env["ir.ui.view"]._render_template("dt_expense.portal_expense_history_entries_partial", {"entries": entries, "scope": scope, "request": request})
+        qs = request.httprequest.query_string.decode() if request.httprequest.query_string else ""
+        history_qs = qs.replace("offset=" + str(offset_value) + "&", "").replace("&offset=" + str(offset_value), "").replace("offset=" + str(offset_value), "")
+        return_to = "/my/apps/expenses/history" + (("?" + history_qs) if history_qs else "")
+        return_to_encoded = urlquote(return_to, safe="")
+        html = request.env["ir.ui.view"]._render_template("dt_expense.portal_expense_history_entries_partial", {"entries": entries, "scope": scope, "request": request, "return_to_encoded": return_to_encoded})
         if isinstance(html, bytes):
             html = html.decode("utf-8")
         return request.make_response(json.dumps({"html": html, "has_more": has_more, "next_offset": offset_value + per_page}), headers=[("Content-Type", "application/json")])
