@@ -147,8 +147,12 @@ class FamilyExpensePortal(http.Controller):
         if category_id:
             domain.append(("category_id", "=", category_id))
         elif parent_id:
-            child_ids = self._category_model().search([("parent_id", "=", parent_id), ("active", "=", True)]).ids
-            domain.append(("category_id", "in", child_ids or [parent_id]))
+            direct_children = self._category_model().search([("parent_id", "=", parent_id), ("active", "=", True)])
+            all_leaf_ids = [c.id for c in direct_children if c.is_leaf]
+            for mid in direct_children.filtered(lambda c: not c.is_leaf):
+                grandchildren = self._category_model().search([("parent_id", "=", mid.id), ("active", "=", True)])
+                all_leaf_ids += grandchildren.ids
+            domain.append(("category_id", "in", all_leaf_ids or [parent_id]))
         if search:
             domain += ["|", "|", "|", "|", ("name", "ilike", search), ("note", "ilike", search), ("category_id.name", "ilike", search), ("user_id.name", "ilike", search), ("wallet_id.name", "ilike", search)]
         return domain
@@ -177,10 +181,10 @@ class FamilyExpensePortal(http.Controller):
         net = sum(entry.get_balance_effect() for entry in entries)
         return income, expense, net
 
-    def _build_report(self, entries, group_mode="parent", limit=None):
+    def _build_report(self, entries, group_mode="parent", limit=None, entry_type="expense"):
         totals = defaultdict(float)
         buckets = {}
-        expense_entries = entries.filtered(lambda e: e.entry_type == "expense" and e.category_id)
+        expense_entries = entries.filtered(lambda e: e.entry_type == entry_type and e.category_id)
         for entry in expense_entries:
             bucket = entry.category_id.parent_id if (group_mode == "parent" and entry.category_id.parent_id) else entry.category_id
             totals[bucket.id] += abs(entry.amount or 0.0)
@@ -243,7 +247,7 @@ class FamilyExpensePortal(http.Controller):
             member_entries = month_entries.filtered(lambda e: e.user_id.id == member.id)
             _, member_expense, member_net = self._cash_report_buckets(member_entries)
             member_rows.append({"user": member, "expense_label": self._format_money(member_expense, short=True), "net_label": self._format_money(member_net, show_plus=True, short=True)})
-        report = self._build_report(month_entries, group_mode="parent", limit=5)
+        report = self._build_report(month_entries, group_mode="parent", limit=5, entry_type="expense")
         report["filter_date_from"] = month_start.isoformat()
         report["filter_date_to"] = month_end.isoformat()
         return {
@@ -270,66 +274,30 @@ class FamilyExpensePortal(http.Controller):
         current_type = entry.entry_type if entry else active_tab
         if current_type not in ("expense", "income", "adjustment"):
             current_type = "expense"
-
-        # Leaf categories for quick chips
-        leaf_categories = self._category_model().search(self._category_domain(user, leaf_only=True), order="category_type, sequence, id")
-        # Parent categories for modal grouping (and selectable)
-        parent_categories = self._category_model().search(self._category_domain(user, parent_only=True), order="category_type, sequence, id")
-
-        # Build leaf-by-parent mapping
-        leaf_by_parent = {}
-        for cat in leaf_categories:
-            if cat.parent_id:
-                leaf_by_parent.setdefault(cat.parent_id.id, []).append(cat)
-
-        # 6-month usage counts per category
-        _today = date.today()
-        _m6, _y6 = _today.month - 6, _today.year
-        if _m6 <= 0:
-            _m6 += 12
-            _y6 -= 1
-        six_months_ago = date(_y6, _m6, 1)
-        _all_cat_ids = list(leaf_categories.ids) + list(parent_categories.ids)
-        _entries_6m = self._entry_model().search([
-            ("user_id", "=", user.id), ("active", "=", True),
-            ("category_id", "in", _all_cat_ids or [0]),
-            ("expense_date", ">=", six_months_ago),
-        ])
-        six_month_counts = {}
-        for _e in _entries_6m:
-            if _e.category_id:
-                six_month_counts[_e.category_id.id] = six_month_counts.get(_e.category_id.id, 0) + 1
-
-        # 6-month group usage = parent count + sum of all leaf children counts
-        six_month_group_usage = {}
-        for _p in parent_categories:
-            _ch = leaf_by_parent.get(_p.id, [])
-            six_month_group_usage[_p.id] = six_month_counts.get(_p.id, 0) + sum(six_month_counts.get(_c.id, 0) for _c in _ch)
-
-        # Sort parents by 6-month group usage desc for modal
-        sorted_parents = parent_categories.sorted(key=lambda p: (-six_month_group_usage.get(p.id, 0), p.sequence, p.id))
-
-        # Pre-build grouped_cats with children sorted by 6-month usage desc for the modal
-        grouped_cats = []
-        for parent in sorted_parents:
-            children_sorted = sorted(leaf_by_parent.get(parent.id, []), key=lambda c: (-six_month_counts.get(c.id, 0), c.sequence, c.id))
-            grouped_cats.append({"parent": parent, "children": children_sorted})
-
-        # All selectable = leaf + parent (select element options)
-        all_selectable = leaf_categories | parent_categories
-        if entry and entry.category_id and entry.category_id not in all_selectable:
-            all_selectable |= entry.category_id
-
-        # Quick row = top 7 parent categories per type by 6-month group usage
-        parents_by_type = {
-            "expense": parent_categories.filtered(lambda c: c.category_type == "expense"),
-            "income": parent_categories.filtered(lambda c: c.category_type == "income"),
+        categories = self._category_model().search(self._category_domain(user, leaf_only=True), order="category_type, sequence, id")
+        if entry and entry.category_id and entry.category_id not in categories:
+            categories |= entry.category_id
+        categories_by_type = {
+            "expense": categories.filtered(lambda c: c.category_type == "expense"),
+            "income": categories.filtered(lambda c: c.category_type == "income"),
         }
-        def _pick_quick_parent(items):
-            return items.sorted(key=lambda p: (-six_month_group_usage.get(p.id, 0), p.sequence, p.id))[:7]
-        quick_categories = _pick_quick_parent(parents_by_type["expense"]) | _pick_quick_parent(parents_by_type["income"])
-        quick_has_children = {cat.id: bool(leaf_by_parent.get(cat.id)) for cat in quick_categories}
-
+        # Tính số giao dịch tháng trước cho mỗi danh mục
+        last_month_end = date.today().replace(day=1) - timedelta(days=1)
+        last_month_start = last_month_end.replace(day=1)
+        last_month_entries = self._entry_model().search([
+            ("active", "=", True), ("user_id", "=", user.id),
+            ("accounting_month", ">=", last_month_start), ("accounting_month", "<=", last_month_end),
+        ])
+        last_month_counts = defaultdict(int)
+        for e in last_month_entries:
+            if e.category_id:
+                last_month_counts[e.category_id.id] += 1
+        usage_counts = {cat.id: last_month_counts.get(cat.id, cat.entry_count) for cat in categories}
+        def _pick_quick(items):
+            ranked = items.sorted(key=lambda c: (-usage_counts.get(c.id, 0), c.sequence, c.id))
+            return ranked[:7]
+        quick_categories = _pick_quick(categories_by_type["expense"]) | _pick_quick(categories_by_type["income"])
+        parent_categories = self._category_model().search(self._category_domain(user, parent_only=True), order="category_type, sequence, id")
         wallets = self._wallet_model().search([("user_id", "=", user.id), ("active", "=", True)], order="sequence, id")
         if not wallets:
             wallets = self._wallet_model().get_default_wallet(user)
@@ -340,11 +308,10 @@ class FamilyExpensePortal(http.Controller):
             page_subtitle="Nhập nhanh thu chi",
             entry=entry,
             active_tab=current_type,
-            categories=all_selectable,
+            categories=categories,
+            categories_by_type=categories_by_type,
             quick_categories=quick_categories,
-            quick_has_children=quick_has_children,
-            parent_categories=sorted_parents,
-            grouped_cats=grouped_cats,
+            parent_categories=parent_categories,
             wallets=wallets,
             default_wallet=entry.wallet_id if entry else wallets[:1],
             media_items=media_items,
@@ -425,7 +392,7 @@ class FamilyExpensePortal(http.Controller):
             vals["category_id"] = False
         else:
             category = self._category_model().browse(self._safe_int(category_id)) if category_id else self._category_model().browse()
-            allowed_category_ids = self._category_model().search(self._category_domain(user, category_type=entry_type)).ids
+            allowed_category_ids = self._category_model().search(self._category_domain(user, category_type=entry_type, leaf_only=True)).ids
             if not category.exists() or category.id not in allowed_category_ids:
                 return request.redirect("/my/apps/expenses/new?entry_type=%s" % entry_type)
             vals["category_id"] = category.id
@@ -464,6 +431,7 @@ class FamilyExpensePortal(http.Controller):
         return request.render("dt_expense.portal_expense_categories", self._base_values(
             page_title="Danh mục chi tiêu" if category_type == "expense" else "Danh mục thu nhập",
             page_subtitle="%s nhóm cha · %s mục con" % (len(roots), len(categories.filtered(lambda c: c.parent_id))),
+            page_action_url="/my/apps/expenses/categories/new?category_type=%s" % category_type,
             category_type=category_type,
             roots=roots,
             back_url="/my/apps/expenses",
@@ -500,6 +468,9 @@ class FamilyExpensePortal(http.Controller):
             "apply_next_month_rule": apply_next_month_rule == "on",
             "user_id": user.id,
         }
+        # Chặn cấp 3: parent phải là root (không có cha)
+        if parent.exists() and parent.parent_id:
+            return request.redirect("/my/apps/expenses/categories?category_type=%s" % category_type)
         if category_id:
             category = self._category_model().browse(self._safe_int(category_id))
             if category.exists() and category.can_manage(user):
@@ -524,7 +495,7 @@ class FamilyExpensePortal(http.Controller):
         if not category.exists() or not category.can_manage(request.env.user):
             return request.redirect("/my/apps/expenses/categories")
         suggestions = self._suggestion_model().search([("category_id", "=", category.id)], order="sequence, id")
-        return request.render("dt_expense.portal_expense_suggestions", self._base_values(page_title="Gợi ý tiêu đề", category=category, suggestions=suggestions, back_url="/my/apps/expenses/categories?category_type=%s" % category.category_type))
+        return request.render("dt_expense.portal_expense_suggestions", self._base_values(page_title="Gợi ý tiêu đề", page_subtitle=category.name, page_action_url="/my/apps/expenses/categories/%s/suggestions/new" % category.id, category=category, suggestions=suggestions, back_url="/my/apps/expenses/categories?category_type=%s" % category.category_type))
 
     @http.route("/my/apps/expenses/categories/<int:category_id>/suggestions/new", type="http", auth="user", website=True)
     def expense_category_suggestion_new(self, category_id, **kw):
@@ -569,7 +540,7 @@ class FamilyExpensePortal(http.Controller):
         wallets = self._wallet_model().search([("user_id", "=", user.id), ("active", "=", True)], order="sequence, id")
         if not wallets:
             wallets = self._wallet_model().get_default_wallet(user)
-        return request.render("dt_expense.portal_expense_wallets", self._base_values(page_title="Nguồn tiền", wallets=wallets, back_url="/my/apps/expenses"))
+        return request.render("dt_expense.portal_expense_wallets", self._base_values(page_title="Nguồn tiền", page_subtitle="Momo, ngân hàng, tiền mặt của bạn", page_action_url="/my/apps/expenses/wallets/new", wallets=wallets, back_url="/my/apps/expenses"))
 
     @http.route("/my/apps/expenses/wallets/new", type="http", auth="user", website=True)
     def expense_wallet_new(self, **kw):
@@ -637,9 +608,15 @@ class FamilyExpensePortal(http.Controller):
         wallet = self._wallet_model().browse(self._safe_int(wallet_id)) if wallet_id else self._wallet_model().get_default_wallet(user)
         if not wallet.exists() or wallet.user_id.id != user.id:
             wallet = self._wallet_model().get_default_wallet(user)
+        name_clean = (counterparty or "").strip() or "Người liên quan"
+        # Auto-save vào contact list của user
+        if name_clean != "Người liên quan":
+            c_model = request.env["dt.expense.contact"].sudo()
+            if not c_model.search([("user_id", "=", user.id), ("name", "=", name_clean)], limit=1):
+                c_model.create({"user_id": user.id, "name": name_clean})
         vals = {
             "debt_type": debt_type if debt_type in ("lend", "borrow") else "lend",
-            "counterparty": (counterparty or "").strip() or "Người liên quan",
+            "counterparty": name_clean,
             "amount": abs(self._parse_money(amount)),
             "wallet_id": wallet.id,
             "debt_date": self._parse_date(debt_date, date.today()),
@@ -665,12 +642,46 @@ class FamilyExpensePortal(http.Controller):
                 debt.register_payment(self._parse_money(payment_amount), payment_date=self._parse_date(payment_date, date.today()), wallet=wallet, note=(payment_note or "").strip())
         return request.redirect("/my/apps/expenses/debts")
 
+    @http.route("/my/apps/expenses/debts/<int:debt_id>/delete", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def expense_debt_delete(self, debt_id, **kw):
+        debt = self._debt_model().browse(debt_id)
+        if debt.exists() and debt.user_id.id == request.env.user.id:
+            debt.unlink()
+        return request.redirect("/my/apps/expenses/debts")
+
     @http.route("/my/apps/expenses/debts/<int:debt_id>/cancel", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def expense_debt_cancel(self, debt_id, **kw):
         debt = self._debt_model().browse(debt_id)
         if debt.exists() and debt.user_id.id == request.env.user.id:
             debt.action_cancel()
         return request.redirect("/my/apps/expenses/debts")
+
+    def _contact_model(self):
+        return request.env["dt.expense.contact"].sudo()
+
+    @http.route("/my/apps/expenses/contacts/search", type="http", auth="user", website=True)
+    def expense_contacts_search(self, q="", limit=10, **kw):
+        user = request.env.user
+        query = (q or "").strip()
+        domain = [("user_id", "=", user.id), ("active", "=", True)]
+        if query:
+            domain += ["|", ("name", "ilike", query), ("phone", "ilike", query)]
+        contacts = self._contact_model().search(domain, limit=int(limit), order="name asc")
+        rows = [{"id": c.id, "name": c.name, "phone": c.phone or ""} for c in contacts]
+        return request.make_response(json.dumps(rows), headers=[("Content-Type", "application/json")])
+
+    @http.route("/my/apps/expenses/contacts/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def expense_contacts_save(self, name="", phone="", **kw):
+        user = request.env.user
+        name_clean = (name or "").strip()
+        if not name_clean:
+            return request.make_response(json.dumps({"error": "Tên không được trống"}), headers=[("Content-Type", "application/json")])
+        phone_clean = (phone or "").strip()
+        existing = self._contact_model().search([("user_id", "=", user.id), ("name", "=", name_clean)], limit=1)
+        if existing:
+            return request.make_response(json.dumps({"id": existing.id, "name": existing.name, "phone": existing.phone or ""}), headers=[("Content-Type", "application/json")])
+        contact = self._contact_model().create({"user_id": user.id, "name": name_clean, "phone": phone_clean})
+        return request.make_response(json.dumps({"id": contact.id, "name": contact.name, "phone": contact.phone or ""}), headers=[("Content-Type", "application/json")])
 
     @http.route("/my/apps/expenses/history", type="http", auth="user", website=True)
     def expense_history(self, scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", wallet_id="", **kw):
@@ -692,8 +703,23 @@ class FamilyExpensePortal(http.Controller):
         per_page = 20
         entries = all_entries[:per_page]
         has_more = len(all_entries) > per_page
-        parents = self._category_model().search(self._category_domain(user, parent_only=True), order="category_type, sequence, id")
-        children = self._category_model().search(self._category_domain(user, leaf_only=True), order="sequence, id")
+        # Tính danh mục có trong kết quả (không tính filter category để filter vẫn đúng)
+        base_domain = self._activity_domain(user, scope=scope, search=search, member_id=member_value, member_ids=member_ids_value, date_from=self._parse_date(date_from), date_to=self._parse_date(date_to), entry_type=entry_type, wallet_id=wallet_value)
+        base_entries = self._entry_model().search(base_domain, order="expense_date desc, id desc")
+        used_category_ids = set(base_entries.mapped("category_id").ids)
+        all_children = self._category_model().search(self._category_domain(user, leaf_only=True), order="sequence, id")
+        children = all_children.filtered(lambda c: c.id in used_category_ids)
+        # Chỉ hiện parent nếu có ít nhất 1 con (trực tiếp hoặc qua grandchildren) trong kết quả
+        all_parents = self._category_model().search(self._category_domain(user, parent_only=True), order="category_type, sequence, id")
+        def _parent_has_results(p):
+            direct = used_category_ids & set(all_children.filtered(lambda c: c.parent_id.id == p.id).ids)
+            if direct:
+                return True
+            for mid in all_children.filtered(lambda c: c.parent_id.id == p.id and not c.is_leaf):
+                if used_category_ids & set(all_children.filtered(lambda c: c.parent_id.id == mid.id).ids):
+                    return True
+            return False
+        parents = all_parents.filtered(_parent_has_results)
         family_members = request.env["res.users"].sudo().browse(self._visible_user_ids(user, "family"))
         wallets = self._wallet_model().search(self._wallet_domain(user, scope), order="sequence, id")
         df = self._parse_date(date_from)

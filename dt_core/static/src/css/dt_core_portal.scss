@@ -100,10 +100,10 @@
 .dt-main-content {
     padding: 10px 16px 0;
     min-width: 0;
-    overflow-x: hidden;
+    overflow-x: clip;
 }
 
-.dt-shell { overflow-x: hidden; }
+.dt-shell { overflow-x: clip; }
 
 .dt-bottom-nav {
     position: fixed;
@@ -269,12 +269,13 @@
 .dt-money-suggestion {
     border: 0;
     background: #f4e9da;
-    color: var(--dt-muted);
+    color: var(--dt-text);
     border-radius: 999px;
-    padding: 8px 14px;
-    font-size: 14px;
+    padding: 7px 12px;
+    font-size: 13px;
     font-weight: 900;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .dt-grid-2 {

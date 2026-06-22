@@ -31,7 +31,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         'focusout [data-title-input="1"]': '_onTitleBlur',
         'change [data-file-input="1"]': '_onFileChange',
         'click [data-category-dialog-close="1"]': '_hideAllCategories',
-        'click [data-cat-clear-parent-filter="1"]': '_onClearParentFilter',
         'input [data-category-search="1"]': '_onCategorySearch',
         'change [data-expense-date="1"]': '_onDateChange',
         'input input[name="amount"]': '_updateSavePreview',
@@ -51,7 +50,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this._suggestionRequest = 0;
         this.quickRow = this.el.querySelector('.dt-quick-cats__row');
         this._snapshotOriginalQuickRow();
-        this._snapshotCategoryGroups();
         this._updateState();
         this._rebuildQuickRow();
         this._updateSavePreview();
@@ -69,46 +67,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
                 const t = child.dataset.entryType;
                 if (this.originalChipsByType[t]) { this.originalChipsByType[t].push(child.cloneNode(true)); }
             }
-        });
-    },
-
-    _snapshotCategoryGroups() {
-        if (!this.allCategories) { return; }
-        const body = this.allCategories.querySelector('.dt-cat-modal__body');
-        if (body) { this._catGroupsOriginalOrder = Array.from(body.querySelectorAll('[data-cat-group="1"]')); }
-    },
-
-    _restoreCatGroupOrder() {
-        if (!this.allCategories || !this._catGroupsOriginalOrder) { return; }
-        const body = this.allCategories.querySelector('.dt-cat-modal__body');
-        if (body) { this._catGroupsOriginalOrder.forEach((g) => body.appendChild(g)); }
-    },
-
-    _showFilterBar(parentName) {
-        const bar = this.allCategories && this.allCategories.querySelector('[data-cat-filter-bar="1"]');
-        if (!bar) { return; }
-        const label = bar.querySelector('[data-cat-filter-bar-label="1"]');
-        if (label) { label.textContent = parentName || ''; }
-        bar.classList.remove('d-none');
-    },
-
-    _hideFilterBar() {
-        const bar = this.allCategories && this.allCategories.querySelector('[data-cat-filter-bar="1"]');
-        if (bar) { bar.classList.add('d-none'); }
-    },
-
-    _onClearParentFilter(ev) {
-        ev.preventDefault();
-        if (!this.allCategories) { return; }
-        const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
-        this._restoreCatGroupOrder();
-        this._hideFilterBar();
-        const searchInput = this.allCategories.querySelector('[data-category-search="1"]');
-        if (searchInput) { searchInput.value = ''; }
-        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((n) => { n.style.display = ''; });
-        this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
-            const groupType = group.dataset.catGroupType;
-            group.style.display = (!groupType || groupType === currentType) ? '' : 'none';
         });
     },
 
@@ -147,46 +105,17 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         return (parentId && chipIds.includes(parentId)) ? parentId : '';
     },
 
-    _buildChipForCategory(categoryId, currentType) {
-        if (!this.allCategories || !categoryId) { return null; }
-        const tile = this.allCategories.querySelector(`[data-cat-item="1"][data-category-id="${categoryId}"]`);
-        if (!tile) { return null; }
-        if (tile.dataset.entryType && tile.dataset.entryType !== currentType) { return null; }
-        return this._chipFromTile(tile);
-    },
-
     _rebuildQuickRow() {
         if (!this.quickRow) { return; }
         const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         const activeId = (this.categorySelect && this.categorySelect.value) || '';
-        let chips = (this.originalChipsByType[currentType] || []).map((c) => c.cloneNode(true));
+        const chips = (this.originalChipsByType[currentType] || []).map((c) => c.cloneNode(true));
         const activeChipId = this._resolveActiveChipId(activeId, chips);
-
-        if (activeChipId) {
-            // Move active chip to first position
-            const idx = chips.findIndex((c) => c.dataset.categoryId === activeChipId);
-            if (idx > 0) {
-                const [active] = chips.splice(idx, 1);
-                chips.unshift(active);
-            }
-        } else if (activeId) {
-            // Selected category not in quick row — build a chip for it, drop last to keep count
-            const extraChip = this._buildChipForCategory(activeId, currentType);
-            if (extraChip) {
-                chips.pop();
-                chips.unshift(extraChip);
-            }
-        }
-
         this.quickRow.innerHTML = '';
         chips.forEach((c) => {
             c.hidden = false;
             c.removeAttribute('hidden');
-            const isActive = !!activeId && (
-                c.dataset.categoryId === activeId ||
-                (activeChipId && c.dataset.categoryId === activeChipId)
-            );
-            c.classList.toggle('is-active', isActive);
+            c.classList.toggle('is-active', !!activeChipId && c.dataset.categoryId === activeChipId);
             this.quickRow.appendChild(c);
         });
         if (this.addMoreBtn) { this.quickRow.appendChild(this.addMoreBtn.cloneNode(true)); }
@@ -210,33 +139,30 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         this.allCategories.dataset.activeType = currentType;
 
-        // Always restore original group order before re-applying
-        this._restoreCatGroupOrder();
-
-        // Reset all tiles visible
+        // Reset all tiles visible, clear inline styles
         this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((n) => {
             n.hidden = false; n.removeAttribute('hidden'); n.style.display = '';
         });
 
         const searchInput = this.allCategories.querySelector('[data-category-search="1"]');
-        if (searchInput) { searchInput.value = ''; }
-
-        // Show all groups of current type first
-        this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
-            const groupType = group.dataset.catGroupType;
-            group.style.display = (!groupType || groupType === currentType) ? '' : 'none';
-        });
 
         if (filterParentId) {
-            // Pin the target group to top of list
-            const body = this.allCategories.querySelector('.dt-cat-modal__body');
-            const targetGroup = body && body.querySelector(`[data-cat-group="1"][data-parent-id="${filterParentId}"]`);
-            if (targetGroup && body) { body.insertBefore(targetGroup, body.firstChild); }
-            // Show filter bar with parent name
-            const parentName = targetGroup ? (targetGroup.dataset.catName || '') : '';
-            this._showFilterBar(parentName);
+            // Pre-filter: show only the tapped parent's group, clear search
+            if (searchInput) { searchInput.value = ''; }
+            this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
+                const groupType = group.dataset.catGroupType;
+                const isTarget = group.dataset.parentId === String(filterParentId);
+                const typeOk = !groupType || groupType === currentType;
+                group.style.display = (isTarget && typeOk) ? '' : 'none';
+            });
         } else {
-            this._hideFilterBar();
+            // Show all groups of current type; clear search
+            if (searchInput) { searchInput.value = ''; }
+            this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
+                const groupType = group.dataset.catGroupType;
+                const visibleTiles = Array.from(group.querySelectorAll('[data-cat-item="1"]')).filter((n) => n.dataset.entryType === currentType);
+                group.style.display = visibleTiles.length ? '' : 'none';
+            });
         }
 
         this.allCategories.classList.remove('d-none');
@@ -246,8 +172,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
     _hideAllCategories(ev) {
         if (ev) { ev.preventDefault(); }
         if (!this.allCategories) { return; }
-        this._restoreCatGroupOrder();
-        this._hideFilterBar();
         this.allCategories.classList.add('d-none');
         document.body.style.overflow = '';
     },
@@ -256,10 +180,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         const q = (ev.currentTarget.value || '').trim().toLowerCase();
         const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         if (!this.allCategories) { return; }
-
-        // Typing always clears active parent filter and restores original order
-        this._restoreCatGroupOrder();
-        this._hideFilterBar();
 
         this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
             const groupType = group.dataset.catGroupType;

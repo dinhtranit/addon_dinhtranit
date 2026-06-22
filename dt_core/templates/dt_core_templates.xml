@@ -10,7 +10,8 @@
                         <div class="dt-page-title"><t t-esc="page_title or 'Family'"/></div>
                         <div t-if="page_subtitle" class="dt-page-subtitle"><t t-esc="page_subtitle"/></div>
                     </div>
-                    <a href="/my/profile" class="dt-avatar-link" aria-label="Trang cá nhân">
+                    <a t-if="page_action_url" t-att-href="page_action_url" class="dt-round-btn dt-round-btn--green" aria-label="Thêm mới">+</a>
+                    <a t-else="1" href="/my/profile" class="dt-avatar-link" aria-label="Trang cá nhân">
                         <img t-attf-src="/web/image/res.partner/#{request.env.user.partner_id.id}/avatar_128" alt="avatar"/>
                     </a>
                 </header>

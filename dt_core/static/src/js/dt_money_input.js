@@ -44,6 +44,7 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
     start() {
         this._ensureSuggestionHolder();
         this.el.value = formatSignedValue(this.el.value);
+        this._updateFontSize();
         this.holder.style.display = "none";
         return this._super(...arguments);
     },
@@ -75,20 +76,23 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
             return;
         }
 
-        const multipliers = resolveMultipliers(this.el);
+        const powers = [10, 100, 1000, 10000, 100000, 1000000];
         const seen = new Set();
+        const results = [];
 
-        multipliers.forEach((multiplier) => {
-            const amount = baseNumber * multiplier;
-            if (seen.has(amount)) {
-                return;
+        for (const p of powers) {
+            const amount = baseNumber * p;
+            if (amount > baseNumber && amount < 500000000 && amount % 1000 === 0 && !seen.has(amount)) {
+                seen.add(amount);
+                results.push(amount);
             }
-            seen.add(amount);
+        }
 
+        results.slice(0, 4).forEach((amount) => {
             const button = document.createElement("button");
             button.type = "button";
             button.className = "dt-money-suggestion";
-            button.textContent = `${formatNumberString(String(amount))} vnđ`;
+            button.textContent = formatNumberString(String(amount)) + ' đ';
             button.addEventListener("click", (ev) => {
                 ev.preventDefault();
                 this.el.value = formatNumberString(String(amount));
@@ -101,9 +105,16 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
         this.holder.style.display = this.holder.children.length ? "flex" : "none";
     },
 
+    _updateFontSize() {
+        const len = (this.el.value || '').length;
+        const size = len <= 7 ? 58 : len <= 10 ? 44 : len <= 12 ? 36 : 30;
+        this.el.style.fontSize = size + 'px';
+    },
+
     _onInput() {
         const formatted = formatSignedValue(this.el.value);
         this.el.value = formatted;
+        this._updateFontSize();
         if (document.activeElement === this.el) { this._buildSuggestions(); }
     },
 

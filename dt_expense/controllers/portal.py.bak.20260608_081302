@@ -320,13 +320,13 @@ class FamilyExpensePortal(http.Controller):
         if entry and entry.category_id and entry.category_id not in all_selectable:
             all_selectable |= entry.category_id
 
-        # Quick row = top 7 parent categories per type by 6-month group usage
+        # Quick row = top 8 parent categories per type by 6-month group usage
         parents_by_type = {
             "expense": parent_categories.filtered(lambda c: c.category_type == "expense"),
             "income": parent_categories.filtered(lambda c: c.category_type == "income"),
         }
         def _pick_quick_parent(items):
-            return items.sorted(key=lambda p: (-six_month_group_usage.get(p.id, 0), p.sequence, p.id))[:7]
+            return items.sorted(key=lambda p: (-six_month_group_usage.get(p.id, 0), p.sequence, p.id))[:8]
         quick_categories = _pick_quick_parent(parents_by_type["expense"]) | _pick_quick_parent(parents_by_type["income"])
         quick_has_children = {cat.id: bool(leaf_by_parent.get(cat.id)) for cat in quick_categories}
 

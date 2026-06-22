@@ -31,7 +31,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         'focusout [data-title-input="1"]': '_onTitleBlur',
         'change [data-file-input="1"]': '_onFileChange',
         'click [data-category-dialog-close="1"]': '_hideAllCategories',
-        'click [data-cat-clear-parent-filter="1"]': '_onClearParentFilter',
         'input [data-category-search="1"]': '_onCategorySearch',
         'change [data-expense-date="1"]': '_onDateChange',
         'input input[name="amount"]': '_updateSavePreview',
@@ -51,7 +50,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this._suggestionRequest = 0;
         this.quickRow = this.el.querySelector('.dt-quick-cats__row');
         this._snapshotOriginalQuickRow();
-        this._snapshotCategoryGroups();
         this._updateState();
         this._rebuildQuickRow();
         this._updateSavePreview();
@@ -69,46 +67,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
                 const t = child.dataset.entryType;
                 if (this.originalChipsByType[t]) { this.originalChipsByType[t].push(child.cloneNode(true)); }
             }
-        });
-    },
-
-    _snapshotCategoryGroups() {
-        if (!this.allCategories) { return; }
-        const body = this.allCategories.querySelector('.dt-cat-modal__body');
-        if (body) { this._catGroupsOriginalOrder = Array.from(body.querySelectorAll('[data-cat-group="1"]')); }
-    },
-
-    _restoreCatGroupOrder() {
-        if (!this.allCategories || !this._catGroupsOriginalOrder) { return; }
-        const body = this.allCategories.querySelector('.dt-cat-modal__body');
-        if (body) { this._catGroupsOriginalOrder.forEach((g) => body.appendChild(g)); }
-    },
-
-    _showFilterBar(parentName) {
-        const bar = this.allCategories && this.allCategories.querySelector('[data-cat-filter-bar="1"]');
-        if (!bar) { return; }
-        const label = bar.querySelector('[data-cat-filter-bar-label="1"]');
-        if (label) { label.textContent = parentName || ''; }
-        bar.classList.remove('d-none');
-    },
-
-    _hideFilterBar() {
-        const bar = this.allCategories && this.allCategories.querySelector('[data-cat-filter-bar="1"]');
-        if (bar) { bar.classList.add('d-none'); }
-    },
-
-    _onClearParentFilter(ev) {
-        ev.preventDefault();
-        if (!this.allCategories) { return; }
-        const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
-        this._restoreCatGroupOrder();
-        this._hideFilterBar();
-        const searchInput = this.allCategories.querySelector('[data-category-search="1"]');
-        if (searchInput) { searchInput.value = ''; }
-        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((n) => { n.style.display = ''; });
-        this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
-            const groupType = group.dataset.catGroupType;
-            group.style.display = (!groupType || groupType === currentType) ? '' : 'none';
         });
     },
 
@@ -130,63 +88,25 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         return chip;
     },
 
-    _getParentIdForCategory(categoryId) {
-        if (!this.allCategories || !categoryId) { return null; }
-        const tile = this.allCategories.querySelector(`[data-cat-item="1"][data-category-id="${categoryId}"]`);
-        if (!tile) { return null; }
-        const group = tile.closest('[data-cat-group="1"]');
-        return group ? (group.dataset.parentId || null) : null;
-    },
-
-    _resolveActiveChipId(activeId, chips) {
-        if (!activeId) { return ''; }
-        const chipIds = chips.map((c) => c.dataset.categoryId);
-        if (chipIds.includes(activeId)) { return activeId; }
-        // activeId might be a child — find its parent in the quick row
-        const parentId = this._getParentIdForCategory(activeId);
-        return (parentId && chipIds.includes(parentId)) ? parentId : '';
-    },
-
-    _buildChipForCategory(categoryId, currentType) {
-        if (!this.allCategories || !categoryId) { return null; }
-        const tile = this.allCategories.querySelector(`[data-cat-item="1"][data-category-id="${categoryId}"]`);
-        if (!tile) { return null; }
-        if (tile.dataset.entryType && tile.dataset.entryType !== currentType) { return null; }
-        return this._chipFromTile(tile);
-    },
-
     _rebuildQuickRow() {
         if (!this.quickRow) { return; }
         const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         const activeId = (this.categorySelect && this.categorySelect.value) || '';
-        let chips = (this.originalChipsByType[currentType] || []).map((c) => c.cloneNode(true));
-        const activeChipId = this._resolveActiveChipId(activeId, chips);
-
-        if (activeChipId) {
-            // Move active chip to first position
-            const idx = chips.findIndex((c) => c.dataset.categoryId === activeChipId);
-            if (idx > 0) {
-                const [active] = chips.splice(idx, 1);
-                chips.unshift(active);
-            }
-        } else if (activeId) {
-            // Selected category not in quick row — build a chip for it, drop last to keep count
-            const extraChip = this._buildChipForCategory(activeId, currentType);
-            if (extraChip) {
-                chips.pop();
-                chips.unshift(extraChip);
-            }
+        const originals = (this.originalChipsByType[currentType] || []).map((c) => c.cloneNode(true));
+        const originalIds = originals.map((c) => c.dataset.categoryId);
+        let chips;
+        if (activeId && !originalIds.includes(activeId)) {
+            const tile = this.allCategories && this.allCategories.querySelector(`[data-cat-item="1"][data-category-id="${activeId}"]`);
+            const promoted = tile ? this._chipFromTile(tile) : null;
+            chips = promoted ? [promoted].concat(originals.slice(0, 6)) : originals;
+        } else {
+            chips = originals;
         }
-
         this.quickRow.innerHTML = '';
         chips.forEach((c) => {
             c.hidden = false;
             c.removeAttribute('hidden');
-            const isActive = !!activeId && (
-                c.dataset.categoryId === activeId ||
-                (activeChipId && c.dataset.categoryId === activeChipId)
-            );
-            c.classList.toggle('is-active', isActive);
+            c.classList.toggle('is-active', c.dataset.categoryId === activeId);
             this.quickRow.appendChild(c);
         });
         if (this.addMoreBtn) { this.quickRow.appendChild(this.addMoreBtn.cloneNode(true)); }
@@ -204,41 +124,16 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this._updateState();
     },
 
-    _showAllCategories(ev, filterParentId) {
-        if (ev) { ev.preventDefault(); }
+    _showAllCategories(ev) {
+        ev.preventDefault();
         if (!this.allCategories) { return; }
         const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         this.allCategories.dataset.activeType = currentType;
-
-        // Always restore original group order before re-applying
-        this._restoreCatGroupOrder();
-
-        // Reset all tiles visible
-        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((n) => {
-            n.hidden = false; n.removeAttribute('hidden'); n.style.display = '';
-        });
-
-        const searchInput = this.allCategories.querySelector('[data-category-search="1"]');
-        if (searchInput) { searchInput.value = ''; }
-
-        // Show all groups of current type first
+        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((n) => { n.hidden = false; n.removeAttribute('hidden'); });
         this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
-            const groupType = group.dataset.catGroupType;
-            group.style.display = (!groupType || groupType === currentType) ? '' : 'none';
+            const visibleTiles = Array.from(group.querySelectorAll('[data-cat-item="1"]')).filter((n) => n.dataset.entryType === currentType);
+            group.style.display = visibleTiles.length ? '' : 'none';
         });
-
-        if (filterParentId) {
-            // Pin the target group to top of list
-            const body = this.allCategories.querySelector('.dt-cat-modal__body');
-            const targetGroup = body && body.querySelector(`[data-cat-group="1"][data-parent-id="${filterParentId}"]`);
-            if (targetGroup && body) { body.insertBefore(targetGroup, body.firstChild); }
-            // Show filter bar with parent name
-            const parentName = targetGroup ? (targetGroup.dataset.catName || '') : '';
-            this._showFilterBar(parentName);
-        } else {
-            this._hideFilterBar();
-        }
-
         this.allCategories.classList.remove('d-none');
         document.body.style.overflow = 'hidden';
     },
@@ -246,43 +141,20 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
     _hideAllCategories(ev) {
         if (ev) { ev.preventDefault(); }
         if (!this.allCategories) { return; }
-        this._restoreCatGroupOrder();
-        this._hideFilterBar();
         this.allCategories.classList.add('d-none');
         document.body.style.overflow = '';
     },
 
     _onCategorySearch(ev) {
         const q = (ev.currentTarget.value || '').trim().toLowerCase();
-        const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         if (!this.allCategories) { return; }
-
-        // Typing always clears active parent filter and restores original order
-        this._restoreCatGroupOrder();
-        this._hideFilterBar();
-
+        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((node) => {
+            const name = (node.dataset.catName || '').toLowerCase();
+            node.style.display = !q || name.includes(q) ? '' : 'none';
+        });
         this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
-            const groupType = group.dataset.catGroupType;
-            // Hide wrong-type groups
-            if (groupType && groupType !== currentType) { group.style.display = 'none'; return; }
-
-            const groupName = (group.dataset.catName || '').toLowerCase();
-            const tiles = Array.from(group.querySelectorAll('[data-cat-item="1"]'));
-
-            if (!q || groupName.includes(q)) {
-                // Parent name matches (or no query) → show entire group
-                tiles.forEach((n) => { n.style.display = ''; });
-                group.style.display = '';
-            } else {
-                // Check individual tile names
-                let anyVisible = false;
-                tiles.forEach((n) => {
-                    const visible = (n.dataset.catName || '').toLowerCase().includes(q);
-                    n.style.display = visible ? '' : 'none';
-                    if (visible) { anyVisible = true; }
-                });
-                group.style.display = anyVisible ? '' : 'none';
-            }
+            const anyVisible = Array.from(group.querySelectorAll('[data-cat-item="1"]')).some((n) => n.style.display !== 'none');
+            group.style.display = anyVisible ? '' : 'none';
         });
     },
 
@@ -327,22 +199,11 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         const button = ev.currentTarget;
         const categoryId = button.dataset.categoryId;
         const entryType = button.dataset.entryType;
-        const hasChildren = button.dataset.hasChildren === '1';
         const fromModal = !!(this.allCategories && button.closest('[data-all-categories]'));
-
-        // Sync tab type (only when triggered from quick row, not modal)
-        if (!fromModal && entryType && this.entryTypeInput) {
+        if (entryType && this.entryTypeInput) {
             this.entryTypeInput.value = entryType;
             this.el.querySelectorAll('[data-entry-tab]').forEach((tab) => tab.classList.toggle('is-active', tab.dataset.entryTab === entryType));
         }
-
-        // Parent with children tapped from quick row → open modal filtered to this group
-        if (hasChildren && !fromModal) {
-            this._showAllCategories(ev, categoryId);
-            return;
-        }
-
-        // Select directly (parent-no-children or any tile from modal)
         if (this.categorySelect && categoryId) {
             this.categorySelect.value = categoryId;
             this.el.querySelectorAll('[data-category-id]').forEach((chip) => chip.classList.toggle('is-active', chip.dataset.categoryId === categoryId));

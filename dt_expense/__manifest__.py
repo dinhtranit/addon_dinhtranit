@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Family Expense",
-    "version": "19.0.2.0.0",
+    "version": "19.0.2.1.0",
     "summary": "Quản lý thu chi, nguồn tiền, nợ và báo cáo gia đình trên portal",
     "category": "Website",
     "author": "Dinh Tran IT",

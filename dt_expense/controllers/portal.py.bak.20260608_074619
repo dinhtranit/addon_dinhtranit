@@ -276,43 +276,23 @@ class FamilyExpensePortal(http.Controller):
         # Parent categories for modal grouping (and selectable)
         parent_categories = self._category_model().search(self._category_domain(user, parent_only=True), order="category_type, sequence, id")
 
-        # Build leaf-by-parent mapping
+        # Compute group usage: parent entry_count + sum of all leaf children entry_counts
         leaf_by_parent = {}
         for cat in leaf_categories:
             if cat.parent_id:
                 leaf_by_parent.setdefault(cat.parent_id.id, []).append(cat)
+        group_usage = {}
+        for parent in parent_categories:
+            children = leaf_by_parent.get(parent.id, [])
+            group_usage[parent.id] = parent.entry_count + sum(c.entry_count for c in children)
 
-        # 6-month usage counts per category
-        _today = date.today()
-        _m6, _y6 = _today.month - 6, _today.year
-        if _m6 <= 0:
-            _m6 += 12
-            _y6 -= 1
-        six_months_ago = date(_y6, _m6, 1)
-        _all_cat_ids = list(leaf_categories.ids) + list(parent_categories.ids)
-        _entries_6m = self._entry_model().search([
-            ("user_id", "=", user.id), ("active", "=", True),
-            ("category_id", "in", _all_cat_ids or [0]),
-            ("expense_date", ">=", six_months_ago),
-        ])
-        six_month_counts = {}
-        for _e in _entries_6m:
-            if _e.category_id:
-                six_month_counts[_e.category_id.id] = six_month_counts.get(_e.category_id.id, 0) + 1
+        # Sort parents by group usage desc, then sequence, id
+        sorted_parents = parent_categories.sorted(key=lambda p: (-group_usage.get(p.id, 0), p.sequence, p.id))
 
-        # 6-month group usage = parent count + sum of all leaf children counts
-        six_month_group_usage = {}
-        for _p in parent_categories:
-            _ch = leaf_by_parent.get(_p.id, [])
-            six_month_group_usage[_p.id] = six_month_counts.get(_p.id, 0) + sum(six_month_counts.get(_c.id, 0) for _c in _ch)
-
-        # Sort parents by 6-month group usage desc for modal
-        sorted_parents = parent_categories.sorted(key=lambda p: (-six_month_group_usage.get(p.id, 0), p.sequence, p.id))
-
-        # Pre-build grouped_cats with children sorted by 6-month usage desc for the modal
+        # Pre-build grouped_cats with children sorted by usage desc for the modal
         grouped_cats = []
         for parent in sorted_parents:
-            children_sorted = sorted(leaf_by_parent.get(parent.id, []), key=lambda c: (-six_month_counts.get(c.id, 0), c.sequence, c.id))
+            children_sorted = sorted(leaf_by_parent.get(parent.id, []), key=lambda c: (-c.entry_count, c.sequence, c.id))
             grouped_cats.append({"parent": parent, "children": children_sorted})
 
         # All selectable = leaf + parent (select element options)
@@ -320,15 +300,15 @@ class FamilyExpensePortal(http.Controller):
         if entry and entry.category_id and entry.category_id not in all_selectable:
             all_selectable |= entry.category_id
 
-        # Quick row = top 7 parent categories per type by 6-month group usage
-        parents_by_type = {
-            "expense": parent_categories.filtered(lambda c: c.category_type == "expense"),
-            "income": parent_categories.filtered(lambda c: c.category_type == "income"),
+        categories_by_type = {
+            "expense": leaf_categories.filtered(lambda c: c.category_type == "expense"),
+            "income": leaf_categories.filtered(lambda c: c.category_type == "income"),
         }
-        def _pick_quick_parent(items):
-            return items.sorted(key=lambda p: (-six_month_group_usage.get(p.id, 0), p.sequence, p.id))[:7]
-        quick_categories = _pick_quick_parent(parents_by_type["expense"]) | _pick_quick_parent(parents_by_type["income"])
-        quick_has_children = {cat.id: bool(leaf_by_parent.get(cat.id)) for cat in quick_categories}
+        usage_counts = {cat.id: cat.entry_count for cat in leaf_categories}
+        def _pick_quick(items):
+            ranked = items.sorted(key=lambda c: (-usage_counts.get(c.id, 0), c.sequence, c.id))
+            return ranked[:7]
+        quick_categories = _pick_quick(categories_by_type["expense"]) | _pick_quick(categories_by_type["income"])
 
         wallets = self._wallet_model().search([("user_id", "=", user.id), ("active", "=", True)], order="sequence, id")
         if not wallets:
@@ -341,8 +321,8 @@ class FamilyExpensePortal(http.Controller):
             entry=entry,
             active_tab=current_type,
             categories=all_selectable,
+            categories_by_type=categories_by_type,
             quick_categories=quick_categories,
-            quick_has_children=quick_has_children,
             parent_categories=sorted_parents,
             grouped_cats=grouped_cats,
             wallets=wallets,

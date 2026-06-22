@@ -100,15 +100,15 @@
                                 <label class="dt-cat-search"><span>🔍</span><input type="search" placeholder="Tìm kiếm" data-category-search="1"/></label>
                                 <a t-att-href="'/my/apps/expenses/categories/new?category_type=%s' % active_tab" class="dt-cat-create"><span>＋</span> Tạo mới</a>
                             </div>
-                            <div class="dt-cat-filter-bar d-none" data-cat-filter-bar="1">
-                                <span class="dt-cat-filter-bar__label" data-cat-filter-bar-label="1"></span>
-                                <button type="button" class="dt-cat-filter-bar__clear" data-cat-clear-parent-filter="1">✕ Xem tất cả</button>
-                            </div>
                             <div class="dt-cat-modal__body">
                                 <t t-foreach="grouped_cats" t-as="group">
                                     <div t-attf-class="dt-cat-group dt-cat-group--#{group['parent'].category_type or 'mixed'}" data-cat-group="1" t-att-data-cat-group-type="group['parent'].category_type" t-att-data-cat-name="group['parent'].name" t-att-data-parent-id="group['parent'].id">
-                                        <button type="button" t-attf-class="dt-cat-group__head dt-cat-group__head--selectable #{'is-active' if entry and entry.category_id.id == group['parent'].id else ''}" t-att-data-category-id="group['parent'].id" t-att-data-entry-type="group['parent'].category_type" t-att-data-next-month-rule="'1' if group['parent'].apply_next_month_rule else '0'" data-cat-item="1" t-att-data-cat-name="group['parent'].name"><span class="dt-cat-group__icon"><t t-esc="group['parent'].icon or '🗂️'"/></span><span class="dt-cat-group__name"><t t-esc="group['parent'].name"/></span><span class="dt-cat-group__select-hint">Chọn →</span></button>
+                                        <div class="dt-cat-group__head"><span class="dt-cat-group__icon"><t t-esc="group['parent'].icon or '🗂️'"/></span><span class="dt-cat-group__name"><t t-esc="group['parent'].name"/></span></div>
                                         <div class="dt-cat-group__tiles">
+                                            <button type="button" t-attf-class="dt-cat-tile dt-cat-tile--parent #{'is-active' if entry and entry.category_id.id == group['parent'].id else ''}" t-att-data-category-id="group['parent'].id" t-att-data-entry-type="group['parent'].category_type" t-att-data-next-month-rule="'1' if group['parent'].apply_next_month_rule else '0'" data-cat-item="1" t-att-data-cat-name="group['parent'].name">
+                                                <span class="dt-cat-tile__icon"><t t-esc="group['parent'].icon or '🗂️'"/></span>
+                                                <span class="dt-cat-tile__name">Tất cả</span>
+                                            </button>
                                             <t t-foreach="group['children']" t-as="cat">
                                                 <button type="button" t-attf-class="dt-cat-tile #{'is-active' if entry and entry.category_id.id == cat.id else ''}" t-att-data-category-id="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" data-cat-item="1" t-att-data-cat-name="cat.name">
                                                     <span class="dt-cat-tile__icon"><t t-esc="cat.icon or '💸'"/></span>

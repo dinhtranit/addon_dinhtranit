@@ -4,3 +4,4 @@ from . import dt_expense_entry
 from . import dt_expense_debt
 from . import dt_expense_title_suggestion
 from . import dt_expense_title_history
+from . import dt_expense_contact

@@ -31,7 +31,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         'focusout [data-title-input="1"]': '_onTitleBlur',
         'change [data-file-input="1"]': '_onFileChange',
         'click [data-category-dialog-close="1"]': '_hideAllCategories',
-        'click [data-cat-clear-parent-filter="1"]': '_onClearParentFilter',
         'input [data-category-search="1"]': '_onCategorySearch',
         'change [data-expense-date="1"]': '_onDateChange',
         'input input[name="amount"]': '_updateSavePreview',
@@ -47,11 +46,11 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this.expenseDate = this.el.querySelector('[data-expense-date="1"]');
         this.accountingMonth = this.el.querySelector('[data-accounting-month="1"]');
         this.savePreview = this.el.querySelector('[data-save-amount-preview="1"]');
+        this.saveBar = this.el.querySelector('.dt-save-bar');
         this.allCategories = this.el.querySelector('[data-all-categories="1"]');
         this._suggestionRequest = 0;
-        this.quickRow = this.el.querySelector('.dt-quick-cats__row');
+        this.quickRow = this.el.querySelector('.dt-quick-cats__grid,.dt-quick-cats__row');
         this._snapshotOriginalQuickRow();
-        this._snapshotCategoryGroups();
         this._updateState();
         this._rebuildQuickRow();
         this._updateSavePreview();
@@ -69,46 +68,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
                 const t = child.dataset.entryType;
                 if (this.originalChipsByType[t]) { this.originalChipsByType[t].push(child.cloneNode(true)); }
             }
-        });
-    },
-
-    _snapshotCategoryGroups() {
-        if (!this.allCategories) { return; }
-        const body = this.allCategories.querySelector('.dt-cat-modal__body');
-        if (body) { this._catGroupsOriginalOrder = Array.from(body.querySelectorAll('[data-cat-group="1"]')); }
-    },
-
-    _restoreCatGroupOrder() {
-        if (!this.allCategories || !this._catGroupsOriginalOrder) { return; }
-        const body = this.allCategories.querySelector('.dt-cat-modal__body');
-        if (body) { this._catGroupsOriginalOrder.forEach((g) => body.appendChild(g)); }
-    },
-
-    _showFilterBar(parentName) {
-        const bar = this.allCategories && this.allCategories.querySelector('[data-cat-filter-bar="1"]');
-        if (!bar) { return; }
-        const label = bar.querySelector('[data-cat-filter-bar-label="1"]');
-        if (label) { label.textContent = parentName || ''; }
-        bar.classList.remove('d-none');
-    },
-
-    _hideFilterBar() {
-        const bar = this.allCategories && this.allCategories.querySelector('[data-cat-filter-bar="1"]');
-        if (bar) { bar.classList.add('d-none'); }
-    },
-
-    _onClearParentFilter(ev) {
-        ev.preventDefault();
-        if (!this.allCategories) { return; }
-        const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
-        this._restoreCatGroupOrder();
-        this._hideFilterBar();
-        const searchInput = this.allCategories.querySelector('[data-category-search="1"]');
-        if (searchInput) { searchInput.value = ''; }
-        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((n) => { n.style.display = ''; });
-        this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
-            const groupType = group.dataset.catGroupType;
-            group.style.display = (!groupType || groupType === currentType) ? '' : 'none';
         });
     },
 
@@ -130,63 +89,25 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         return chip;
     },
 
-    _getParentIdForCategory(categoryId) {
-        if (!this.allCategories || !categoryId) { return null; }
-        const tile = this.allCategories.querySelector(`[data-cat-item="1"][data-category-id="${categoryId}"]`);
-        if (!tile) { return null; }
-        const group = tile.closest('[data-cat-group="1"]');
-        return group ? (group.dataset.parentId || null) : null;
-    },
-
-    _resolveActiveChipId(activeId, chips) {
-        if (!activeId) { return ''; }
-        const chipIds = chips.map((c) => c.dataset.categoryId);
-        if (chipIds.includes(activeId)) { return activeId; }
-        // activeId might be a child — find its parent in the quick row
-        const parentId = this._getParentIdForCategory(activeId);
-        return (parentId && chipIds.includes(parentId)) ? parentId : '';
-    },
-
-    _buildChipForCategory(categoryId, currentType) {
-        if (!this.allCategories || !categoryId) { return null; }
-        const tile = this.allCategories.querySelector(`[data-cat-item="1"][data-category-id="${categoryId}"]`);
-        if (!tile) { return null; }
-        if (tile.dataset.entryType && tile.dataset.entryType !== currentType) { return null; }
-        return this._chipFromTile(tile);
-    },
-
     _rebuildQuickRow() {
         if (!this.quickRow) { return; }
         const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         const activeId = (this.categorySelect && this.categorySelect.value) || '';
-        let chips = (this.originalChipsByType[currentType] || []).map((c) => c.cloneNode(true));
-        const activeChipId = this._resolveActiveChipId(activeId, chips);
-
-        if (activeChipId) {
-            // Move active chip to first position
-            const idx = chips.findIndex((c) => c.dataset.categoryId === activeChipId);
-            if (idx > 0) {
-                const [active] = chips.splice(idx, 1);
-                chips.unshift(active);
-            }
-        } else if (activeId) {
-            // Selected category not in quick row — build a chip for it, drop last to keep count
-            const extraChip = this._buildChipForCategory(activeId, currentType);
-            if (extraChip) {
-                chips.pop();
-                chips.unshift(extraChip);
-            }
+        const originals = (this.originalChipsByType[currentType] || []).map((c) => c.cloneNode(true));
+        const originalIds = originals.map((c) => c.dataset.categoryId);
+        let chips;
+        if (activeId && !originalIds.includes(activeId)) {
+            const tile = this.allCategories && this.allCategories.querySelector(`[data-cat-item="1"][data-category-id="${activeId}"]`);
+            const promoted = tile ? this._chipFromTile(tile) : null;
+            chips = promoted ? [promoted].concat(originals.slice(0, 2)) : originals;
+        } else {
+            chips = originals;
         }
-
         this.quickRow.innerHTML = '';
         chips.forEach((c) => {
             c.hidden = false;
             c.removeAttribute('hidden');
-            const isActive = !!activeId && (
-                c.dataset.categoryId === activeId ||
-                (activeChipId && c.dataset.categoryId === activeChipId)
-            );
-            c.classList.toggle('is-active', isActive);
+            c.classList.toggle('is-active', c.dataset.categoryId === activeId);
             this.quickRow.appendChild(c);
         });
         if (this.addMoreBtn) { this.quickRow.appendChild(this.addMoreBtn.cloneNode(true)); }
@@ -204,41 +125,16 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this._updateState();
     },
 
-    _showAllCategories(ev, filterParentId) {
-        if (ev) { ev.preventDefault(); }
+    _showAllCategories(ev) {
+        ev.preventDefault();
         if (!this.allCategories) { return; }
         const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         this.allCategories.dataset.activeType = currentType;
-
-        // Always restore original group order before re-applying
-        this._restoreCatGroupOrder();
-
-        // Reset all tiles visible
-        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((n) => {
-            n.hidden = false; n.removeAttribute('hidden'); n.style.display = '';
-        });
-
-        const searchInput = this.allCategories.querySelector('[data-category-search="1"]');
-        if (searchInput) { searchInput.value = ''; }
-
-        // Show all groups of current type first
+        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((n) => { n.hidden = false; n.removeAttribute('hidden'); });
         this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
-            const groupType = group.dataset.catGroupType;
-            group.style.display = (!groupType || groupType === currentType) ? '' : 'none';
+            const visibleTiles = Array.from(group.querySelectorAll('[data-cat-item="1"]')).filter((n) => n.dataset.entryType === currentType);
+            group.style.display = visibleTiles.length ? '' : 'none';
         });
-
-        if (filterParentId) {
-            // Pin the target group to top of list
-            const body = this.allCategories.querySelector('.dt-cat-modal__body');
-            const targetGroup = body && body.querySelector(`[data-cat-group="1"][data-parent-id="${filterParentId}"]`);
-            if (targetGroup && body) { body.insertBefore(targetGroup, body.firstChild); }
-            // Show filter bar with parent name
-            const parentName = targetGroup ? (targetGroup.dataset.catName || '') : '';
-            this._showFilterBar(parentName);
-        } else {
-            this._hideFilterBar();
-        }
-
         this.allCategories.classList.remove('d-none');
         document.body.style.overflow = 'hidden';
     },
@@ -246,43 +142,20 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
     _hideAllCategories(ev) {
         if (ev) { ev.preventDefault(); }
         if (!this.allCategories) { return; }
-        this._restoreCatGroupOrder();
-        this._hideFilterBar();
         this.allCategories.classList.add('d-none');
         document.body.style.overflow = '';
     },
 
     _onCategorySearch(ev) {
         const q = (ev.currentTarget.value || '').trim().toLowerCase();
-        const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
         if (!this.allCategories) { return; }
-
-        // Typing always clears active parent filter and restores original order
-        this._restoreCatGroupOrder();
-        this._hideFilterBar();
-
+        this.allCategories.querySelectorAll('[data-cat-item="1"]').forEach((node) => {
+            const name = (node.dataset.catName || '').toLowerCase();
+            node.style.display = !q || name.includes(q) ? '' : 'none';
+        });
         this.allCategories.querySelectorAll('[data-cat-group="1"]').forEach((group) => {
-            const groupType = group.dataset.catGroupType;
-            // Hide wrong-type groups
-            if (groupType && groupType !== currentType) { group.style.display = 'none'; return; }
-
-            const groupName = (group.dataset.catName || '').toLowerCase();
-            const tiles = Array.from(group.querySelectorAll('[data-cat-item="1"]'));
-
-            if (!q || groupName.includes(q)) {
-                // Parent name matches (or no query) → show entire group
-                tiles.forEach((n) => { n.style.display = ''; });
-                group.style.display = '';
-            } else {
-                // Check individual tile names
-                let anyVisible = false;
-                tiles.forEach((n) => {
-                    const visible = (n.dataset.catName || '').toLowerCase().includes(q);
-                    n.style.display = visible ? '' : 'none';
-                    if (visible) { anyVisible = true; }
-                });
-                group.style.display = anyVisible ? '' : 'none';
-            }
+            const anyVisible = Array.from(group.querySelectorAll('[data-cat-item="1"]')).some((n) => n.style.display !== 'none');
+            group.style.display = anyVisible ? '' : 'none';
         });
     },
 
@@ -315,34 +188,27 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
     },
 
     _onTitleBlur() {
-        window.setTimeout(() => {
-            if (this.titleList && !this.titleList.matches(':hover')) {
-                this.titleList.classList.add('d-none');
-            }
-        }, 150);
+        this._hideSuggestions();
+        if (this.saveBar) { this.saveBar.classList.remove('is-hidden'); }
+        const saved = this._savedScrollY;
+        if (saved !== undefined) {
+            window.setTimeout(() => {
+                window.scrollTo({ top: saved, behavior: 'instant' });
+            }, 50);
+        }
     },
+
 
     _onQuickCategoryClick(ev) {
         ev.preventDefault();
         const button = ev.currentTarget;
         const categoryId = button.dataset.categoryId;
         const entryType = button.dataset.entryType;
-        const hasChildren = button.dataset.hasChildren === '1';
         const fromModal = !!(this.allCategories && button.closest('[data-all-categories]'));
-
-        // Sync tab type (only when triggered from quick row, not modal)
-        if (!fromModal && entryType && this.entryTypeInput) {
+        if (entryType && this.entryTypeInput) {
             this.entryTypeInput.value = entryType;
             this.el.querySelectorAll('[data-entry-tab]').forEach((tab) => tab.classList.toggle('is-active', tab.dataset.entryTab === entryType));
         }
-
-        // Parent with children tapped from quick row → open modal filtered to this group
-        if (hasChildren && !fromModal) {
-            this._showAllCategories(ev, categoryId);
-            return;
-        }
-
-        // Select directly (parent-no-children or any tile from modal)
         if (this.categorySelect && categoryId) {
             this.categorySelect.value = categoryId;
             this.el.querySelectorAll('[data-category-id]').forEach((chip) => chip.classList.toggle('is-active', chip.dataset.categoryId === categoryId));
@@ -388,7 +254,7 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         }
         this._rebuildQuickRow();
         this._onDateChange();
-        this._refreshSuggestions(true);
+        this._hideSuggestions();
     },
 
     _onDateChange() {
@@ -404,18 +270,27 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
     _updateSavePreview() {
         if (!this.savePreview) { return; }
         const amountInput = this.el.querySelector('input[name="amount"]');
-        const raw = amountInput ? amountInput.value : '';
-        this.savePreview.textContent = raw ? raw + 'vnđ' : '0vnđ';
+        const raw = (amountInput ? amountInput.value : '').replace(/\D/g, '');
+        const num = parseInt(raw, 10) || 0;
+        let label;
+        if (num >= 1000000) {
+            const tr = num / 1000000;
+            label = (tr % 1 === 0 ? tr : parseFloat(tr.toFixed(1))) + 'tr';
+        } else if (num >= 1000) {
+            const ng = num / 1000;
+            label = (ng % 1 === 0 ? ng : parseFloat(ng.toFixed(1))) + 'ng';
+        } else if (num > 0) {
+            label = num + 'đ';
+        } else {
+            label = '0đ';
+        }
+        this.savePreview.textContent = label;
     },
 
-    async _refreshSuggestions(forceShow = false) {
+    async _refreshSuggestions() {
         if (!this.titleInput || !this.titleList || !this.categorySelect) { return; }
         const categoryId = this.categorySelect.value;
-        if (!categoryId) {
-            this.titleList.innerHTML = '';
-            this.titleList.classList.add('d-none');
-            return;
-        }
+        if (!categoryId) { this._hideSuggestions(); return; }
         const query = this.titleInput.value || '';
         const requestId = ++this._suggestionRequest;
         const url = `/my/apps/expenses/title_suggestions?category_id=${encodeURIComponent(categoryId)}&q=${encodeURIComponent(query)}`;
@@ -424,28 +299,72 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
             if (!response.ok) { throw new Error('network'); }
             const rows = await response.json();
             if (requestId !== this._suggestionRequest) { return; }
-            this.titleList.innerHTML = '';
+            if (rows.length === 0) { this._hideSuggestions(); return; }
+            this.titleList.innerHTML = ''; // re-render
             rows.forEach((row) => {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'dt-autocomplete-item';
                 button.textContent = row.label;
-                button.addEventListener('click', (event) => {
-                    event.preventDefault();
+                let _touchStartY = 0;
+                button.addEventListener('touchstart', (e) => {
+                    _touchStartY = e.touches[0].clientY;
+                }, { passive: true });
+                button.addEventListener('touchend', (e) => {
+                    if (Math.abs(e.changedTouches[0].clientY - _touchStartY) < 10) {
+                        e.preventDefault();
+                        this.titleInput.value = row.label;
+                        this._hideSuggestions();
+                    }
+                });
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
                     this.titleInput.value = row.label;
-                    this.titleList.classList.add('d-none');
+                    this._hideSuggestions();
                 });
                 this.titleList.appendChild(button);
             });
-            this.titleList.classList.toggle('d-none', rows.length === 0 && !forceShow);
-        } catch (_e) {
-            this.titleList.innerHTML = '';
-            this.titleList.classList.add('d-none');
-        }
+            this._showSuggestions();
+        } catch (_e) { this._hideSuggestions(); }
     },
 
-    _onTitleInput() { this._refreshSuggestions(true); },
-    _onTitleFocus() { this._refreshSuggestions(true); },
+    _hideSuggestions() {
+        if (!this.titleList) { return; }
+        this.titleList.classList.remove('is-open');
+        clearTimeout(this._hideTimer);
+        // Không xóa DOM — chỉ hide CSS, tránh layout shift gây giật
+        this._hideTimer = window.setTimeout(() => {
+            if (!this.titleList.classList.contains('is-open')) {
+                this.titleList.classList.add('d-none');
+            }
+        }, 160);
+    },
+
+    _showSuggestions() {
+        if (!this.titleList) { return; }
+        clearTimeout(this._hideTimer);
+        this.titleList.classList.remove('d-none');
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+                this.titleList.classList.add('is-open');
+                // Scroll list vào view sau khi keyboard iOS mở xong (~350ms)
+                clearTimeout(this._scrollTimer);
+                this._scrollTimer = window.setTimeout(() => {
+                    if (this.titleList && this.titleList.classList.contains('is-open')) {
+                        this.titleList.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }, 350);
+            });
+        });
+    },
+
+    _onTitleInput() { this._refreshSuggestions(); },
+
+    _onTitleFocus() {
+        this._savedScrollY = window.scrollY;
+        if (this.saveBar) { this.saveBar.classList.add('is-hidden'); }
+        this._refreshSuggestions();
+    },
 });
 
 publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
@@ -733,5 +652,174 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
             const matchGroup = !q || groupName.includes(q);
             group.style.display = (anyTile || matchGroup) ? '' : 'none';
         });
+    },
+});
+
+publicWidget.registry.DTDebtForm = publicWidget.Widget.extend({
+    selector: 'form[data-debt-form="1"]',
+    events: {
+        'click [data-debt-tab]': '_onTabClick',
+        'input [data-counterparty-input="1"]': '_onCPInput',
+        'focusin [data-counterparty-input="1"]': '_onCPFocus',
+        'focusout [data-counterparty-input="1"]': '_onCPBlur',
+        'click [data-contact-picker-open="1"]': '_openModal',
+        'click [data-contact-picker-close="1"]': '_closeModal',
+        'input [data-contact-modal-search="1"]': '_onModalSearch',
+        'click [data-contact-new-open="1"]': '_openNewForm',
+        'click [data-contact-new-cancel="1"]': '_closeNewForm',
+        'click [data-contact-new-save="1"]': '_saveNewContact',
+    },
+
+    start() {
+        this.debtTypeHidden = this.el.querySelector('[data-debt-type-hidden="1"]');
+        this.cpInput = this.el.querySelector('[data-counterparty-input="1"]');
+        this.cpDropdown = this.el.querySelector('[data-counterparty-list="1"]');
+        this.cpResults = this.el.querySelector('[data-contact-results="1"]');
+        this.modal = this.el.querySelector('[data-contact-modal="1"]');
+        this.modalSearch = this.el.querySelector('[data-contact-modal-search="1"]');
+        this.modalList = this.el.querySelector('[data-contact-modal-list="1"]');
+        this.newForm = this.el.querySelector('[data-contact-new-form="1"]');
+        this._cpReq = 0; this._modalReq = 0;
+        // Bind trực tiếp vì các element này có thể bị move ra ngoài form
+        const moreBtn = this.cpDropdown && this.cpDropdown.querySelector('[data-contact-picker-open="1"]');
+        if (moreBtn) { moreBtn.addEventListener('click', () => this._openModal()); }
+        const closeBtn = this.modal && this.modal.querySelector('[data-contact-picker-close="1"]');
+        if (closeBtn) { closeBtn.addEventListener('click', () => this._closeModal()); }
+        const newOpenBtn = this.modal && this.modal.querySelector('[data-contact-new-open="1"]');
+        if (newOpenBtn) { newOpenBtn.addEventListener('click', () => this._openNewForm()); }
+        const newCancelBtn = this.modal && this.modal.querySelector('[data-contact-new-cancel="1"]');
+        if (newCancelBtn) { newCancelBtn.addEventListener('click', () => this._closeNewForm()); }
+        const newSaveBtn = this.modal && this.modal.querySelector('[data-contact-new-save="1"]');
+        if (newSaveBtn) { newSaveBtn.addEventListener('click', () => this._saveNewContact()); }
+        if (this.modalSearch) { this.modalSearch.addEventListener('input', () => this._onModalSearch()); }
+        return this._super(...arguments);
+    },
+
+    _onTabClick(ev) {
+        const tab = ev.currentTarget.dataset.debtTab;
+        if (this.debtTypeHidden) { this.debtTypeHidden.value = tab; }
+        this.el.querySelectorAll('[data-debt-tab]').forEach((b) => b.classList.toggle('is-active', b.dataset.debtTab === tab));
+    },
+
+    _selectContact(name) {
+        if (this.cpInput) { this.cpInput.value = name; }
+        this._hideDropdown();
+        this._closeModal();
+    },
+
+    _renderContactItems(rows, container) {
+        container.innerHTML = '';
+        if (!rows.length) {
+            container.innerHTML = '<div style="padding:14px 20px;color:var(--dt-muted);font-size:14px;">Không tìm thấy kết quả</div>';
+            return;
+        }
+        rows.forEach((row) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'dt-contact-modal__item';
+            btn.innerHTML = `<strong>${row.name}</strong>${row.phone ? `<small>${row.phone}</small>` : ''}`;
+            btn.addEventListener('click', () => this._selectContact(row.name));
+            container.appendChild(btn);
+        });
+    },
+
+    async _fetchContacts(q, limit = 8) {
+        const res = await fetch(`/my/apps/expenses/contacts/search?q=${encodeURIComponent(q)}&limit=${limit}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        return await res.json();
+    },
+
+    async _onCPInput() {
+        const q = (this.cpInput.value || '').trim();
+        const id = ++this._cpReq;
+        if (!q) { this._hideDropdown(); return; }
+        try {
+            const rows = await this._fetchContacts(q, 8);
+            if (id !== this._cpReq) { return; }
+            this._renderContactItems(rows, this.cpResults);
+            if (rows.length) { this._showDropdown(); } else { this._hideDropdown(); }
+        } catch (_e) { this._hideDropdown(); }
+    },
+
+    _onCPFocus() { if ((this.cpInput.value || '').trim()) { this._onCPInput(); } },
+    _onCPBlur() { window.setTimeout(() => this._hideDropdown(), 180); },
+
+    _positionDropdown() {
+        if (!this.cpDropdown || !this.cpInput) { return; }
+        const rect = this.cpInput.getBoundingClientRect();
+        this.cpDropdown.style.position = 'fixed';
+        this.cpDropdown.style.top = (rect.bottom + 4) + 'px';
+        this.cpDropdown.style.left = rect.left + 'px';
+        this.cpDropdown.style.width = rect.width + 'px';
+        this.cpDropdown.style.zIndex = '9999';
+    },
+
+    _showDropdown() {
+        if (!this.cpDropdown) { return; }
+        // Move to body to escape overflow:hidden
+        if (this.cpDropdown.parentNode !== document.body) {
+            document.body.appendChild(this.cpDropdown);
+        }
+        this._positionDropdown();
+        this.cpDropdown.classList.remove('d-none');
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => this.cpDropdown.classList.add('is-open')));
+    },
+    _hideDropdown() {
+        if (!this.cpDropdown) { return; }
+        this.cpDropdown.classList.remove('is-open');
+        window.setTimeout(() => this.cpDropdown.classList.add('d-none'), 160);
+    },
+
+    async _openModal() {
+        if (!this.modal) { return; }
+        this.modal.classList.remove('d-none');
+        if (this.modalSearch) { this.modalSearch.value = (this.cpInput && this.cpInput.value) || ''; }
+        this._closeNewForm();
+        await this._loadModalContacts();
+        window.setTimeout(() => this.modalSearch && this.modalSearch.focus(), 100);
+    },
+    _closeModal() {
+        if (this.modal) { this.modal.classList.add('d-none'); }
+        this._closeNewForm();
+    },
+
+    async _loadModalContacts() {
+        if (!this.modalList) { return; }
+        const q = (this.modalSearch && this.modalSearch.value) || '';
+        const id = ++this._modalReq;
+        try {
+            const rows = await this._fetchContacts(q, 50);
+            if (id !== this._modalReq) { return; }
+            this._renderContactItems(rows, this.modalList);
+        } catch (_e) {}
+    },
+    async _onModalSearch() { await this._loadModalContacts(); },
+
+    _openNewForm() {
+        if (this.newForm) { this.newForm.classList.remove('d-none'); }
+        const nameInput = this.el.querySelector('[data-new-contact-name="1"]');
+        if (nameInput) { window.setTimeout(() => nameInput.focus(), 50); }
+    },
+    _closeNewForm() { if (this.newForm) { this.newForm.classList.add('d-none'); } },
+
+    async _saveNewContact() {
+        const nameEl = this.el.querySelector('[data-new-contact-name="1"]');
+        const phoneEl = this.el.querySelector('[data-new-contact-phone="1"]');
+        const name = (nameEl && nameEl.value || '').trim();
+        if (!name) { nameEl && nameEl.focus(); return; }
+        const phone = (phoneEl && phoneEl.value || '').trim();
+        try {
+            const csrf = document.querySelector('input[name="csrf_token"]');
+            const fd = new FormData();
+            fd.append('name', name);
+            fd.append('phone', phone);
+            if (csrf) { fd.append('csrf_token', csrf.value); }
+            const res = await fetch('/my/apps/expenses/contacts/save', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await res.json();
+            if (data.id) {
+                this._selectContact(data.name);
+                if (nameEl) { nameEl.value = ''; }
+                if (phoneEl) { phoneEl.value = ''; }
+            }
+        } catch (_e) {}
     },
 });
