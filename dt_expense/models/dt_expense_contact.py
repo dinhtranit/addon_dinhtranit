@@ -11,6 +11,8 @@ class DtExpenseContact(models.Model):
     name = fields.Char(required=True, string="Tên")
     phone = fields.Char(string="Số điện thoại")
     active = fields.Boolean(default=True)
+    last_used_at = fields.Datetime(default=fields.Datetime.now)
+    used_count = fields.Integer(default=1)
 
     _sql_constraints = [
         ("uniq_user_name", "UNIQUE(user_id, name)", "Liên hệ đã tồn tại trong danh sách của bạn."),

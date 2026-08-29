@@ -9,7 +9,7 @@ class FamilyExpenseDebt(models.Model):
     _order = "debt_date desc, id desc"
     _rec_name = "display_name"
 
-    name = fields.Char(string="Ghi chú")
+    name = fields.Char(required=True, string="Ghi chú")
     code = fields.Char(copy=False, index=True, default="New")
     display_name = fields.Char(compute="_compute_display_name", store=True)
     debt_type = fields.Selection([
@@ -78,6 +78,7 @@ class FamilyExpenseDebt(models.Model):
         debts = super().create(vals_list)
         for debt in debts:
             debt._sync_initial_entry()
+        debts._track_counterparty_history()
         return debts
 
     def write(self, vals):
@@ -89,7 +90,24 @@ class FamilyExpenseDebt(models.Model):
                         debt.initial_entry_id.sudo().write({"active": False})
                 else:
                     debt._sync_initial_entry()
+        if "counterparty" in vals:
+            self._track_counterparty_history()
         return result
+
+    def _track_counterparty_history(self):
+        contact_model = self.env["dt.expense.contact"].sudo()
+        for debt in self:
+            name = (debt.counterparty or "").strip()
+            if not name or name == "Người liên quan":
+                continue
+            contact = contact_model.search([
+                ("user_id", "=", debt.user_id.id),
+                ("name", "=ilike", name),
+            ], limit=1)
+            if contact:
+                contact.write({"last_used_at": fields.Datetime.now(), "used_count": contact.used_count + 1})
+            else:
+                contact_model.create({"user_id": debt.user_id.id, "name": name})
 
     @api.constrains("amount")
     def _check_amount(self):
@@ -176,3 +194,7 @@ class FamilyExpenseDebt(models.Model):
     def get_debt_type_label(self):
         self.ensure_one()
         return dict(self._fields["debt_type"].selection).get(self.debt_type or "lend", "Nợ")
+
+    def get_media_items(self):
+        self.ensure_one()
+        return self.env["dt.media"].sudo().search([("res_model", "=", self._name), ("res_id", "=", self.id)], order="is_cover desc, sequence, id")

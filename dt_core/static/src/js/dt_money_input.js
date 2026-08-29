@@ -82,7 +82,7 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
 
         for (const p of powers) {
             const amount = baseNumber * p;
-            if (amount > baseNumber && amount < 500000000 && amount % 1000 === 0 && !seen.has(amount)) {
+            if (amount > baseNumber && amount > 10000 && amount < 500000000 && amount % 1000 === 0 && !seen.has(amount)) {
                 seen.add(amount);
                 results.push(amount);
             }
