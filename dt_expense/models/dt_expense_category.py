@@ -11,8 +11,10 @@ class FamilyExpenseCategory(models.Model):
     name = fields.Char(required=True)
     code = fields.Char(copy=False, index=True, default="New")
     icon = fields.Char(default="💸")
+    image = fields.Image(string="Hình ảnh", max_width=256, max_height=256)
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
+    count_in_expense = fields.Boolean(default=True, string="Tính vào chi tiêu", help="Nếu tắt, giao dịch thuộc danh mục này sẽ không cộng vào tổng chi tiêu (vẫn trừ vào số dư nguồn tiền).")
     category_type = fields.Selection([
         ("expense", "Chi tiêu"),
         ("income", "Thu nhập"),
