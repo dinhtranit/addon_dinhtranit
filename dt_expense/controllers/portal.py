@@ -362,7 +362,7 @@ class FamilyExpensePortal(http.Controller):
     def expense_home(self, **kw):
         user = request.env.user
         summary = self._home_summary(user)
-        values = self._base_values(page_title="Hello %s" % user.name, page_subtitle=summary.get("today_label", ""), back_url="", show_bottom_nav=True)
+        values = self._base_values(page_title="Hello %s" % user.name, page_subtitle=summary.get("today_label", ""), back_url="", show_bottom_nav=True, page_action_url="/my/apps/expenses/new")
         values.update(summary)
         return request.render("dt_expense.portal_expense_home", values)
 
@@ -742,7 +742,7 @@ class FamilyExpensePortal(http.Controller):
         qs = request.httprequest.query_string.decode() if request.httprequest.query_string else ""
         return_to = "/my/apps/expenses/history" + (("?" + qs) if qs else "")
         return_to_encoded = urlquote(return_to, safe="")
-        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", entries=entries, has_more=has_more, next_offset=per_page, month_label=month_label, search=search, scope=scope, member_id=member_value, selected_member_ids=member_ids_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value, parent_categories=parents, child_categories=children, wallets=wallets, total_income_label=self._format_money(total_income, short=False), total_expense_label=self._format_money(total_expense, short=False), total_net_label=self._format_money(total_net, show_plus=True, short=False), filter_count=filter_count, back_url="/my/apps/expenses", return_to_encoded=return_to_encoded, period_kind=period_kind))
+        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", entries=entries, has_more=has_more, next_offset=per_page, month_label=month_label, search=search, scope=scope, member_id=member_value, selected_member_ids=member_ids_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value, parent_categories=parents, child_categories=children, wallets=wallets, total_income_label=self._format_money(total_income, short=False), total_expense_label=self._format_money(total_expense, short=False), total_net_label=self._format_money(total_net, show_plus=True, short=False), filter_count=filter_count, back_url="/my/apps/expenses", page_action_url="/my/apps/expenses/new", return_to_encoded=return_to_encoded, period_kind=period_kind))
 
     @http.route("/my/apps/expenses/history/entries", type="http", auth="user", website=True)
     def expense_history_entries(self, offset=0, scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", wallet_id="", **kw):
