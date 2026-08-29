@@ -35,6 +35,9 @@ class FamilyExpensePortal(http.Controller):
     def _debt_model(self):
         return request.env["dt.expense.debt"].sudo()
 
+    def _contact_model(self):
+        return request.env["dt.expense.contact"].sudo()
+
     def _suggestion_model(self):
         return request.env["dt.expense.title.suggestion"].sudo()
 
@@ -621,7 +624,7 @@ class FamilyExpensePortal(http.Controller):
         user = request.env.user
         debt_type = debt_type if debt_type in ("lend", "borrow") else "lend"
         wallets = self._wallet_model().search([("user_id", "=", user.id), ("active", "=", True)], order="sequence, id") or self._wallet_model().get_default_wallet(user)
-        return request.render("dt_expense.portal_expense_debt_form", self._base_values(page_title="Tạo khoản nợ", debt=False, debt_type=debt_type, wallets=wallets, default_date=date.today().isoformat(), back_url="/my/apps/expenses/debts"))
+        return request.render("dt_expense.portal_expense_debt_form", self._base_values(page_title="Tạo khoản nợ", debt=False, debt_type=debt_type, wallets=wallets, media_items=request.env["dt.media"].sudo().browse(), default_date=date.today().isoformat(), back_url="/my/apps/expenses/debts"))
 
     @http.route("/my/apps/expenses/debts/<int:debt_id>/edit", type="http", auth="user", website=True)
     def expense_debt_edit(self, debt_id, **kw):
@@ -629,31 +632,51 @@ class FamilyExpensePortal(http.Controller):
         if not debt.exists() or debt.user_id.id != request.env.user.id:
             return request.redirect("/my/apps/expenses/debts")
         wallets = self._wallet_model().search([("user_id", "=", request.env.user.id), ("active", "=", True)], order="sequence, id")
-        return request.render("dt_expense.portal_expense_debt_form", self._base_values(page_title="Sửa khoản nợ", debt=debt, debt_type=debt.debt_type, wallets=wallets, default_date=debt.debt_date.isoformat(), back_url="/my/apps/expenses/debts"))
+        return request.render("dt_expense.portal_expense_debt_form", self._base_values(page_title="Sửa khoản nợ", debt=debt, debt_type=debt.debt_type, wallets=wallets, media_items=debt.get_media_items(), default_date=debt.debt_date.isoformat(), back_url="/my/apps/expenses/debts"))
+
+    @http.route("/my/apps/expenses/debts/counterparty_suggestions", type="http", auth="user", website=True)
+    def expense_debt_counterparty_suggestions(self, q="", **kw):
+        user = request.env.user
+        domain = [("user_id", "=", user.id), ("active", "=", True)]
+        query = (q or "").strip()
+        if query:
+            domain.append(("name", "ilike", query))
+        contacts = self._contact_model().search(domain, order="used_count desc, last_used_at desc, name asc", limit=12)
+        rows = [{"label": c.name} for c in contacts]
+        return request.make_response(json.dumps(rows), headers=[("Content-Type", "application/json")])
 
     @http.route("/my/apps/expenses/debts/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def expense_debt_save(self, debt_id=None, debt_type="lend", counterparty="", amount="0", wallet_id=None, debt_date="", due_date="", name="", note="", **kw):
         user = request.env.user
+        debt_type = debt_type if debt_type in ("lend", "borrow") else "lend"
+        name_clean = (name or "").strip()
+        if not name_clean:
+            fallback = ("/my/apps/expenses/debts/%s/edit" % debt_id) if debt_id else ("/my/apps/expenses/debts/new?debt_type=%s" % debt_type)
+            return request.redirect(fallback)
         wallet = self._wallet_model().browse(self._safe_int(wallet_id)) if wallet_id else self._wallet_model().get_default_wallet(user)
         if not wallet.exists() or wallet.user_id.id != user.id:
             wallet = self._wallet_model().get_default_wallet(user)
         vals = {
-            "debt_type": debt_type if debt_type in ("lend", "borrow") else "lend",
+            "debt_type": debt_type,
             "counterparty": (counterparty or "").strip() or "Người liên quan",
             "amount": abs(self._parse_money(amount)),
             "wallet_id": wallet.id,
             "debt_date": self._parse_date(debt_date, date.today()),
             "due_date": self._parse_date(due_date),
-            "name": (name or "").strip(),
+            "name": name_clean,
             "note": (note or "").strip(),
             "user_id": user.id,
         }
         if debt_id:
             debt = self._debt_model().browse(self._safe_int(debt_id))
-            if debt.exists() and debt.user_id.id == user.id:
+            if not debt.exists() or debt.user_id.id != user.id:
+                debt = self._debt_model().browse()
+            else:
                 debt.write(vals)
         else:
-            self._debt_model().create(vals)
+            debt = self._debt_model().create(vals)
+        if debt:
+            request.env["dt.media"].sudo().create_from_uploads(request.httprequest.files.getlist("media_files"), debt, owner_user=user)
         return request.redirect("/my/apps/expenses/debts")
 
     @http.route("/my/apps/expenses/debts/<int:debt_id>/payment", type="http", auth="user", website=True, methods=["POST"], csrf=True)

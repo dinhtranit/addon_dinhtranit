@@ -361,16 +361,36 @@
     <template id="portal_expense_debt_form" name="Expense Debt Form">
         <t t-call="dt_core.portal_shell">
             <section class="dt-expense-page">
-                <form action="/my/apps/expenses/debts/save" method="post" class="dt-panel dt-form-stack">
+                <form action="/my/apps/expenses/debts/save" method="post" enctype="multipart/form-data" class="dt-panel dt-form-stack" data-debt-form="1">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <input t-if="debt" type="hidden" name="debt_id" t-att-value="debt.id"/>
                     <div class="dt-segment"><label t-attf-class="#{'is-active' if debt_type == 'lend' else ''}"><input type="radio" name="debt_type" value="lend" t-att-checked="'checked' if debt_type == 'lend' else None"/> Cho mượn</label><label t-attf-class="#{'is-active' if debt_type == 'borrow' else ''}"><input type="radio" name="debt_type" value="borrow" t-att-checked="'checked' if debt_type == 'borrow' else None"/> Mình mượn</label></div>
-                    <label class="dt-field"><span>Người liên quan</span><input type="text" name="counterparty" t-att-value="debt.counterparty if debt else ''" required="required"/></label>
-                    <label class="dt-field"><span>Số tiền</span><input type="text" name="amount" t-att-value="request.env['dt.expense.entry'].format_amount_for_input(debt.amount) if debt else ''" data-money-input="1" required="required"/></label>
+                    <label class="dt-field">
+                        <span>Người liên quan</span>
+                        <input type="text" name="counterparty" t-att-value="debt.counterparty if debt else ''" data-counterparty-input="1" autocomplete="off" required="required"/>
+                        <div class="dt-autocomplete-list d-none" data-counterparty-suggestion-list="1"></div>
+                    </label>
+                    <div class="dt-amount-panel">
+                        <span>Số tiền</span>
+                        <input type="text" name="amount" t-att-value="request.env['dt.expense.entry'].format_amount_for_input(debt.amount) if debt else ''" data-money-input="1" required="required"/>
+                    </div>
                     <label class="dt-field"><span>Nguồn tiền</span><select name="wallet_id"><t t-foreach="wallets" t-as="wallet"><option t-att-value="wallet.id" t-att-selected="'selected' if debt and debt.wallet_id.id == wallet.id else None"><t t-esc="wallet.icon"/> <t t-esc="wallet.name"/></option></t></select></label>
                     <div class="dt-grid-2"><label class="dt-field"><span>Ngày phát sinh</span><input type="date" name="debt_date" t-att-value="debt.debt_date.isoformat() if debt else default_date"/></label><label class="dt-field"><span>Hạn trả</span><input type="date" name="due_date" t-att-value="debt.due_date.isoformat() if debt and debt.due_date else ''"/></label></div>
-                    <label class="dt-field"><span>Tiêu đề/ghi chú ngắn</span><input type="text" name="name" t-att-value="debt.name if debt else ''"/></label>
+                    <label class="dt-field"><span>Tiêu đề/ghi chú ngắn</span><input type="text" name="name" t-att-value="debt.name if debt else ''" required="required"/></label>
                     <label class="dt-field"><span>Ghi chú</span><textarea name="note" rows="3"><t t-esc="debt.note if debt else ''"/></textarea></label>
+                    <label class="dt-field">
+                        <span>Ảnh/chứng từ</span>
+                        <input class="dt-file-input" type="file" name="media_files" accept="image/*,video/*" multiple="multiple" data-file-input="1"/><span class="dt-file-button">Tải file</span>
+                    </label>
+                    <div class="dt-media-grid d-none" data-file-preview="1"></div>
+                    <div class="dt-media-grid" t-if="media_items">
+                        <t t-foreach="media_items" t-as="media">
+                            <div class="dt-media-tile">
+                                <img t-if="media.media_type == 'image'" t-att-src="media.image_url()"/>
+                                <video t-if="media.media_type == 'video'" t-att-src="media.stream_url()" controls="controls" preload="metadata"></video>
+                            </div>
+                        </t>
+                    </div>
                     <button class="dt-btn dt-btn--primary" type="submit">Lưu khoản nợ</button>
                 </form>
             </section>

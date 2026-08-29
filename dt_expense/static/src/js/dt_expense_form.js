@@ -17,6 +17,28 @@ function nextMonth(value) {
     return `${year}-${String(month + 1).padStart(2, "0")}-01`;
 }
 
+function renderSuggestionList(listEl, rows, onPick, forceShow) {
+    listEl.innerHTML = "";
+    rows.forEach((row) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "dt-autocomplete-item";
+        button.textContent = row.label;
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            onPick(row.label);
+        });
+        listEl.appendChild(button);
+    });
+    listEl.classList.toggle("d-none", rows.length === 0 && !forceShow);
+}
+
+function hideListOnBlur(listEl) {
+    window.setTimeout(() => {
+        if (listEl && !listEl.matches(":hover")) { listEl.classList.add("d-none"); }
+    }, 150);
+}
+
 publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
     selector: 'form[data-expense-form="1"]',
     events: {
@@ -29,7 +51,6 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         'input [data-title-input="1"]': '_onTitleInput',
         'focusin [data-title-input="1"]': '_onTitleFocus',
         'focusout [data-title-input="1"]': '_onTitleBlur',
-        'change [data-file-input="1"]': '_onFileChange',
         'click [data-category-dialog-close="1"]': '_hideAllCategories',
         'click [data-cat-clear-parent-filter="1"]': '_onClearParentFilter',
         'input [data-category-search="1"]': '_onCategorySearch',
@@ -286,40 +307,8 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         });
     },
 
-    _onFileChange(ev) {
-        const input = ev.currentTarget;
-        const holder = this.el.querySelector('[data-file-preview="1"]');
-        if (!holder) { return; }
-        holder.innerHTML = '';
-        const files = Array.from(input.files || []);
-        if (!files.length) { holder.classList.add('d-none'); return; }
-        holder.classList.remove('d-none');
-        files.forEach((file) => {
-            const tile = document.createElement('div');
-            tile.className = 'dt-media-tile dt-media-tile--new';
-            if (file.type.startsWith('image/')) {
-                const img = document.createElement('img');
-                img.src = URL.createObjectURL(file);
-                tile.appendChild(img);
-            } else {
-                const label = document.createElement('span');
-                label.textContent = '📎 ' + file.name;
-                tile.appendChild(label);
-            }
-            const badge = document.createElement('span');
-            badge.className = 'dt-media-tile__badge';
-            badge.textContent = '✓';
-            tile.appendChild(badge);
-            holder.appendChild(tile);
-        });
-    },
-
     _onTitleBlur() {
-        window.setTimeout(() => {
-            if (this.titleList && !this.titleList.matches(':hover')) {
-                this.titleList.classList.add('d-none');
-            }
-        }, 150);
+        hideListOnBlur(this.titleList);
     },
 
     _onQuickCategoryClick(ev) {
@@ -424,20 +413,10 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
             if (!response.ok) { throw new Error('network'); }
             const rows = await response.json();
             if (requestId !== this._suggestionRequest) { return; }
-            this.titleList.innerHTML = '';
-            rows.forEach((row) => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'dt-autocomplete-item';
-                button.textContent = row.label;
-                button.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    this.titleInput.value = row.label;
-                    this.titleList.classList.add('d-none');
-                });
-                this.titleList.appendChild(button);
-            });
-            this.titleList.classList.toggle('d-none', rows.length === 0 && !forceShow);
+            renderSuggestionList(this.titleList, rows, (label) => {
+                this.titleInput.value = label;
+                this.titleList.classList.add('d-none');
+            }, forceShow);
         } catch (_e) {
             this.titleList.innerHTML = '';
             this.titleList.classList.add('d-none');
@@ -446,6 +425,54 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
 
     _onTitleInput() { this._refreshSuggestions(true); },
     _onTitleFocus() { this._refreshSuggestions(true); },
+});
+
+publicWidget.registry.DTDebtForm = publicWidget.Widget.extend({
+    selector: 'form[data-debt-form="1"]',
+    events: {
+        'change input[name="debt_type"]': '_onDebtTypeChange',
+        'input [data-counterparty-input="1"]': '_onCounterpartyInput',
+        'focusin [data-counterparty-input="1"]': '_onCounterpartyFocus',
+        'focusout [data-counterparty-input="1"]': '_onCounterpartyBlur',
+    },
+
+    start() {
+        this.counterpartyInput = this.el.querySelector('[data-counterparty-input="1"]');
+        this.counterpartyList = this.el.querySelector('[data-counterparty-suggestion-list="1"]');
+        this._suggestionRequest = 0;
+        return this._super(...arguments);
+    },
+
+    _onDebtTypeChange(ev) {
+        const value = ev.currentTarget.value;
+        this.el.querySelectorAll('.dt-segment label').forEach((label) => {
+            const radio = label.querySelector('input[name="debt_type"]');
+            label.classList.toggle('is-active', !!radio && radio.value === value);
+        });
+    },
+
+    async _refreshCounterpartySuggestions(forceShow = false) {
+        if (!this.counterpartyInput || !this.counterpartyList) { return; }
+        const requestId = ++this._suggestionRequest;
+        const url = `/my/apps/expenses/debts/counterparty_suggestions?q=${encodeURIComponent(this.counterpartyInput.value || '')}`;
+        try {
+            const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!response.ok) { throw new Error('network'); }
+            const rows = await response.json();
+            if (requestId !== this._suggestionRequest) { return; }
+            renderSuggestionList(this.counterpartyList, rows, (label) => {
+                this.counterpartyInput.value = label;
+                this.counterpartyList.classList.add('d-none');
+            }, forceShow);
+        } catch (_e) {
+            this.counterpartyList.innerHTML = '';
+            this.counterpartyList.classList.add('d-none');
+        }
+    },
+
+    _onCounterpartyInput() { this._refreshCounterpartySuggestions(true); },
+    _onCounterpartyFocus() { this._refreshCounterpartySuggestions(true); },
+    _onCounterpartyBlur() { hideListOnBlur(this.counterpartyList); },
 });
 
 publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({

@@ -294,6 +294,11 @@
 }
 
 @media (min-width: 760px) {
+    .dt-topbar {
+        max-width: 620px;
+        margin: 0 auto;
+    }
+
     .dt-main-content {
         max-width: 620px;
         margin: 0 auto;
