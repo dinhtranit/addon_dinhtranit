@@ -141,8 +141,13 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         chip.dataset.entryType = tile.dataset.entryType;
         chip.dataset.nextMonthRule = tile.dataset.nextMonthRule || '0';
         const icon = document.createElement('span');
-        const iconText = tile.querySelector('.dt-cat-tile__icon');
-        icon.textContent = (iconText ? iconText.textContent : '💸').trim() || '💸';
+        const iconSource = tile.querySelector('.dt-cat-tile__icon');
+        const iconImg = iconSource ? iconSource.querySelector('img') : null;
+        if (iconImg) {
+            icon.appendChild(iconImg.cloneNode(true));
+        } else {
+            icon.textContent = (iconSource ? iconSource.textContent : '💸').trim() || '💸';
+        }
         const name = document.createElement('small');
         const nameText = tile.querySelector('.dt-cat-tile__name');
         name.textContent = (nameText ? nameText.textContent : '').trim();
@@ -394,7 +399,7 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         if (!this.savePreview) { return; }
         const amountInput = this.el.querySelector('input[name="amount"]');
         const raw = amountInput ? amountInput.value : '';
-        this.savePreview.textContent = raw ? raw + 'vnđ' : '0vnđ';
+        this.savePreview.textContent = raw || '0';
     },
 
     async _refreshSuggestions(forceShow = false) {
@@ -495,6 +500,7 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
         'click [data-cat-filter-group="1"]': '_onCatFilterGroupPick',
         'click [data-cat-filter-clear="1"]': '_onCatFilterClear',
         'input [data-cat-filter-search="1"]': '_onCatFilterSearch',
+        'click [data-balance-toggle="1"]': '_onBalanceToggle',
     },
 
     start() {
@@ -511,6 +517,16 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
         ev.preventDefault();
         const adv = this.el.querySelector('[data-filter-advanced="1"]');
         if (adv) { adv.classList.toggle('d-none'); }
+    },
+
+    _onBalanceToggle() {
+        const isVisible = document.cookie.split('; ').some((c) => c === 'dt_balance_visible=1');
+        if (isVisible) {
+            document.cookie = 'dt_balance_visible=; max-age=0; path=/';
+        } else {
+            document.cookie = 'dt_balance_visible=1; max-age=1800; path=/';
+        }
+        window.location.reload();
     },
 
     _onMemberOpen(ev) {
@@ -616,6 +632,8 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
             parent_id: sentinel.dataset.parentId || '',
             category_id: sentinel.dataset.categoryId || '',
             wallet_id: sentinel.dataset.walletId || '',
+            debt_flow: sentinel.dataset.debtFlow || '',
+            debt_id: sentinel.dataset.debtId || '',
         });
         const memberIdsRaw = sentinel.dataset.memberIds || '';
         if (memberIdsRaw) {

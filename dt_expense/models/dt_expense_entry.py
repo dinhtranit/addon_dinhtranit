@@ -312,6 +312,13 @@ class FamilyExpenseEntry(models.Model):
         self.ensure_one()
         return dict(self._fields["debt_flow"].selection).get(self.debt_flow or "", "Giao dịch nợ")
 
+    def get_date_group_label(self):
+        self.ensure_one()
+        if not self.expense_date:
+            return ""
+        weekday_labels = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+        return "%s, %s" % (weekday_labels[self.expense_date.weekday()], self.expense_date.strftime("%d/%m/%Y"))
+
     @api.model
     def parse_money_text(self, raw_value):
         raw_value = (raw_value or "").strip()

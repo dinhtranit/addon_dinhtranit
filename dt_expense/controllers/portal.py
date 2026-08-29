@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+import base64
 import calendar
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 import json
+import math
 from urllib.parse import urlencode, quote as urlquote
 
 from odoo import fields, http
@@ -19,6 +21,7 @@ class FamilyExpensePortal(http.Controller):
             "page_subtitle": extra.get("page_subtitle", ""),
             "back_url": extra.get("back_url", "/my/apps/expenses"),
             "show_bottom_nav": extra.get("show_bottom_nav", False),
+            "balance_visible": request.httprequest.cookies.get("dt_balance_visible") == "1",
         }
         values.update(extra)
         return values
@@ -131,7 +134,7 @@ class FamilyExpensePortal(http.Controller):
                 result.append(n)
         return result
 
-    def _activity_domain(self, user, scope="mine", search="", member_id=None, date_from=None, date_to=None, entry_type=None, parent_id=None, category_id=None, wallet_id=None, member_ids=None):
+    def _activity_domain(self, user, scope="mine", search="", member_id=None, date_from=None, date_to=None, entry_type=None, parent_id=None, category_id=None, wallet_id=None, member_ids=None, debt_flow=None, debt_id=None):
         visible_ids = self._visible_user_ids(user, scope)
         domain = [("active", "=", True), ("user_id", "in", visible_ids)]
         ids = [i for i in (member_ids or []) if i in visible_ids]
@@ -145,29 +148,20 @@ class FamilyExpensePortal(http.Controller):
             domain.append(("expense_date", "<=", date_to))
         if entry_type in ("expense", "income", "adjustment", "debt"):
             domain.append(("entry_type", "=", entry_type))
+        if debt_flow in ("lend_out", "borrow_in", "collect_lend", "repay_borrow"):
+            domain.append(("debt_flow", "=", debt_flow))
+        if debt_id:
+            domain.append(("debt_id", "=", debt_id))
         if wallet_id:
             domain.append(("wallet_id", "=", wallet_id))
         if category_id:
             domain.append(("category_id", "=", category_id))
         elif parent_id:
             child_ids = self._category_model().search([("parent_id", "=", parent_id), ("active", "=", True)]).ids
-            domain.append(("category_id", "in", child_ids or [parent_id]))
+            domain.append(("category_id", "in", child_ids + [parent_id]))
         if search:
             domain += ["|", "|", "|", "|", ("name", "ilike", search), ("note", "ilike", search), ("category_id.name", "ilike", search), ("user_id.name", "ilike", search), ("wallet_id.name", "ilike", search)]
         return domain
-
-    def _effect_buckets(self, entries):
-        income = 0.0
-        expense = 0.0
-        net = 0.0
-        for entry in entries:
-            effect = entry.get_balance_effect()
-            net += effect
-            if effect >= 0:
-                income += effect
-            else:
-                expense += abs(effect)
-        return income, expense, net
 
     def _cash_report_buckets(self, entries):
         """Return true income, true spending and total cash movement.
@@ -176,14 +170,29 @@ class FamilyExpensePortal(http.Controller):
         Thu/Chi labels in dashboard/history. Their cash effect is included in net.
         """
         income = sum(float(entry.amount or 0.0) for entry in entries if entry.entry_type == "income")
-        expense = sum(float(entry.amount or 0.0) for entry in entries if entry.entry_type == "expense")
+        expense = sum(float(entry.amount or 0.0) for entry in entries if entry.entry_type == "expense" and entry.category_id.count_in_expense)
         net = sum(entry.get_balance_effect() for entry in entries)
         return income, expense, net
 
-    def _build_report(self, entries, group_mode="parent", limit=None):
+    def _donut_point(self, angle_deg, radius, center=100):
+        rad = math.radians(angle_deg - 90)
+        return center + radius * math.cos(rad), center + radius * math.sin(rad)
+
+    def _donut_slice_path(self, angle_start, angle_end, outer=90, inner=55):
+        x1, y1 = self._donut_point(angle_start, outer)
+        x2, y2 = self._donut_point(angle_end, outer)
+        x3, y3 = self._donut_point(angle_end, inner)
+        x4, y4 = self._donut_point(angle_start, inner)
+        large_arc = 1 if (angle_end - angle_start) > 180 else 0
+        return (
+            "M %.2f %.2f A %s %s 0 %s 1 %.2f %.2f L %.2f %.2f A %s %s 0 %s 0 %.2f %.2f Z"
+            % (x1, y1, outer, outer, large_arc, x2, y2, x3, y3, inner, inner, large_arc, x4, y4)
+        )
+
+    def _build_report(self, entries, group_mode="parent", limit=None, link_params=None):
         totals = defaultdict(float)
         buckets = {}
-        expense_entries = entries.filtered(lambda e: e.entry_type == "expense" and e.category_id)
+        expense_entries = entries.filtered(lambda e: e.entry_type == "expense" and e.category_id and e.category_id.count_in_expense)
         for entry in expense_entries:
             bucket = entry.category_id.parent_id if (group_mode == "parent" and entry.category_id.parent_id) else entry.category_id
             totals[bucket.id] += abs(entry.amount or 0.0)
@@ -192,7 +201,6 @@ class FamilyExpensePortal(http.Controller):
         colors = ["#bf5a3f", "#dcb06c", "#739363", "#8e7bb0", "#a99c8c", "#e6b66a", "#6a8c6a"]
         rows = []
         angle = 0.0
-        segments = []
         sorted_items = sorted(totals.items(), key=lambda item: item[1], reverse=True)
         if limit:
             sorted_items = sorted_items[:limit]
@@ -200,9 +208,10 @@ class FamilyExpensePortal(http.Controller):
             ratio = (amount / total_amount) if total_amount else 0.0
             next_angle = angle + ratio * 360.0
             color = colors[idx % len(colors)]
-            if ratio:
-                segments.append(f"{color} {angle:.2f}deg {next_angle:.2f}deg")
             bucket = buckets[bucket_id]
+            link_query = dict(link_params or {})
+            link_query["entry_type"] = "expense"
+            link_query["category_id" if group_mode == "child" else "parent_id"] = bucket_id
             rows.append({
                 "id": bucket_id,
                 "name": bucket.name,
@@ -212,17 +221,14 @@ class FamilyExpensePortal(http.Controller):
                 "ratio": round(ratio * 100),
                 "ratio_raw": ratio * 100,
                 "color": color,
+                "svg_path": self._donut_slice_path(angle, min(next_angle, angle + 359.99)) if ratio else "",
+                "link": "/my/apps/expenses/history?%s" % urlencode(link_query),
             })
             angle = next_angle
-        if not segments:
-            segments = ["#efe6d6 0deg 360deg"]
         return {
             "total": total_amount,
-            "total_label": self._format_money(total_amount, short=True),
+            "total_label": self._format_money(total_amount, short=False),
             "rows": rows,
-            "pie_style": "background: conic-gradient(%s);" % ", ".join(segments),
-            "filter_date_from": "",
-            "filter_date_to": "",
         }
 
     def _home_summary(self, user):
@@ -246,9 +252,11 @@ class FamilyExpensePortal(http.Controller):
             member_entries = month_entries.filtered(lambda e: e.user_id.id == member.id)
             _, member_expense, member_net = self._cash_report_buckets(member_entries)
             member_rows.append({"user": member, "expense_label": self._format_money(member_expense, short=True), "net_label": self._format_money(member_net, show_plus=True, short=True)})
-        report = self._build_report(month_entries, group_mode="parent", limit=5)
-        report["filter_date_from"] = month_start.isoformat()
-        report["filter_date_to"] = month_end.isoformat()
+        report = self._build_report(month_entries, group_mode="child", limit=6, link_params={
+            "date_from": month_start.isoformat(),
+            "date_to": month_end.isoformat(),
+            "scope": "family",
+        })
         return {
             "current_balance": current_balance,
             "current_balance_label": self._format_money(current_balance),
@@ -312,11 +320,21 @@ class FamilyExpensePortal(http.Controller):
         # Sort parents by 6-month group usage desc for modal
         sorted_parents = parent_categories.sorted(key=lambda p: (-six_month_group_usage.get(p.id, 0), p.sequence, p.id))
 
-        # Pre-build grouped_cats with children sorted by 6-month usage desc for the modal
+        # Pre-build grouped_cats with children sorted by 6-month usage desc for the modal.
+        # Parents with no children of their own are collected into one "Khác" group per
+        # type instead of each rendering as its own full-width, mostly-empty header row.
         grouped_cats = []
+        childless_parents = {"expense": [], "income": []}
         for parent in sorted_parents:
-            children_sorted = sorted(leaf_by_parent.get(parent.id, []), key=lambda c: (-six_month_counts.get(c.id, 0), c.sequence, c.id))
+            children = leaf_by_parent.get(parent.id, [])
+            if not children:
+                childless_parents.setdefault(parent.category_type, []).append(parent)
+                continue
+            children_sorted = sorted(children, key=lambda c: (-six_month_counts.get(c.id, 0), c.sequence, c.id))
             grouped_cats.append({"parent": parent, "children": children_sorted})
+        for cat_type, others in childless_parents.items():
+            if others:
+                grouped_cats.append({"parent": False, "children": others, "other_type": cat_type})
 
         # All selectable = leaf + parent (select element options)
         all_selectable = leaf_categories | parent_categories
@@ -469,6 +487,7 @@ class FamilyExpensePortal(http.Controller):
             page_subtitle="%s nhóm cha · %s mục con" % (len(roots), len(categories.filtered(lambda c: c.parent_id))),
             category_type=category_type,
             roots=roots,
+            page_action_url="/my/apps/expenses/categories/new?category_type=%s" % category_type,
             back_url="/my/apps/expenses",
         ))
 
@@ -489,7 +508,7 @@ class FamilyExpensePortal(http.Controller):
         return request.render("dt_expense.portal_expense_category_form", self._base_values(page_title="Sửa danh mục", category=category, category_type=category.category_type, parents=parents, selected_parent=category.parent_id, back_url="/my/apps/expenses/categories?category_type=%s" % category.category_type))
 
     @http.route("/my/apps/expenses/categories/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
-    def expense_categories_save(self, category_id=None, name="", icon="💸", category_type="expense", parent_id=None, sequence="10", note="", apply_next_month_rule="", **kw):
+    def expense_categories_save(self, category_id=None, name="", icon="💸", category_type="expense", parent_id=None, sequence="10", note="", apply_next_month_rule="", count_in_expense="", **kw):
         user = request.env.user
         category_type = category_type if category_type in ("expense", "income") else "expense"
         parent = self._category_model().browse(self._safe_int(parent_id)) if parent_id else self._category_model().browse()
@@ -501,8 +520,12 @@ class FamilyExpensePortal(http.Controller):
             "category_type": category_type,
             "parent_id": parent.id if parent.exists() else False,
             "apply_next_month_rule": apply_next_month_rule == "on",
+            "count_in_expense": count_in_expense == "on",
             "user_id": user.id,
         }
+        image_file = request.httprequest.files.get("image")
+        if image_file and image_file.filename:
+            vals["image"] = base64.b64encode(image_file.read())
         if category_id:
             category = self._category_model().browse(self._safe_int(category_id))
             if category.exists() and category.can_manage(user):
@@ -527,7 +550,7 @@ class FamilyExpensePortal(http.Controller):
         if not category.exists() or not category.can_manage(request.env.user):
             return request.redirect("/my/apps/expenses/categories")
         suggestions = self._suggestion_model().search([("category_id", "=", category.id)], order="sequence, id")
-        return request.render("dt_expense.portal_expense_suggestions", self._base_values(page_title="Gợi ý tiêu đề", category=category, suggestions=suggestions, back_url="/my/apps/expenses/categories?category_type=%s" % category.category_type))
+        return request.render("dt_expense.portal_expense_suggestions", self._base_values(page_title="Gợi ý tiêu đề", page_subtitle=category.name, category=category, suggestions=suggestions, page_action_url="/my/apps/expenses/categories/%s/suggestions/new" % category.id, back_url="/my/apps/expenses/categories?category_type=%s" % category.category_type))
 
     @http.route("/my/apps/expenses/categories/<int:category_id>/suggestions/new", type="http", auth="user", website=True)
     def expense_category_suggestion_new(self, category_id, **kw):
@@ -572,7 +595,7 @@ class FamilyExpensePortal(http.Controller):
         wallets = self._wallet_model().search([("user_id", "=", user.id), ("active", "=", True)], order="sequence, id")
         if not wallets:
             wallets = self._wallet_model().get_default_wallet(user)
-        return request.render("dt_expense.portal_expense_wallets", self._base_values(page_title="Nguồn tiền", wallets=wallets, back_url="/my/apps/expenses"))
+        return request.render("dt_expense.portal_expense_wallets", self._base_values(page_title="Nguồn tiền", page_subtitle="Momo, ngân hàng, tiền mặt của bạn", wallets=wallets, page_action_url="/my/apps/expenses/wallets/new", back_url="/my/apps/expenses"))
 
     @http.route("/my/apps/expenses/wallets/new", type="http", auth="user", website=True)
     def expense_wallet_new(self, **kw):
@@ -608,16 +631,20 @@ class FamilyExpensePortal(http.Controller):
         return request.redirect("/my/apps/expenses/wallets")
 
     @http.route("/my/apps/expenses/debts", type="http", auth="user", website=True)
-    def expense_debts(self, state="open", **kw):
+    def expense_debts(self, state="open", debt_type="all", **kw):
         user = request.env.user
         state = state if state in ("open", "paid", "all") else "open"
+        debt_type = debt_type if debt_type in ("lend", "borrow") else "all"
         domain = [("user_id", "=", user.id)]
         if state != "all":
             domain.append(("state", "=", state))
+        if debt_type != "all":
+            domain.append(("debt_type", "=", debt_type))
         debts = self._debt_model().search(domain, order="state, debt_date desc, id desc")
-        lend_total = sum(debt.remaining_amount for debt in debts if debt.debt_type == "lend" and debt.state == "open")
-        borrow_total = sum(debt.remaining_amount for debt in debts if debt.debt_type == "borrow" and debt.state == "open")
-        return request.render("dt_expense.portal_expense_debts", self._base_values(page_title="Sổ nợ", debts=debts, state=state, lend_total_label=self._format_money(lend_total), borrow_total_label=self._format_money(borrow_total), back_url="/my/apps/expenses"))
+        open_debts = self._debt_model().search([("user_id", "=", user.id), ("state", "=", "open")])
+        lend_total = sum(debt.remaining_amount for debt in open_debts if debt.debt_type == "lend")
+        borrow_total = sum(debt.remaining_amount for debt in open_debts if debt.debt_type == "borrow")
+        return request.render("dt_expense.portal_expense_debts", self._base_values(page_title="Sổ nợ", debts=debts, state=state, debt_type=debt_type, lend_total_label=self._format_money(lend_total), borrow_total_label=self._format_money(borrow_total), back_url="/my/apps/expenses"))
 
     @http.route("/my/apps/expenses/debts/new", type="http", auth="user", website=True)
     def expense_debt_new(self, debt_type="lend", **kw):
@@ -679,13 +706,26 @@ class FamilyExpensePortal(http.Controller):
             request.env["dt.media"].sudo().create_from_uploads(request.httprequest.files.getlist("media_files"), debt, owner_user=user)
         return request.redirect("/my/apps/expenses/debts")
 
+    @http.route("/my/apps/expenses/debts/<int:debt_id>/payment/new", type="http", auth="user", website=True)
+    def expense_debt_payment_new(self, debt_id, **kw):
+        user = request.env.user
+        debt = self._debt_model().browse(debt_id)
+        if not debt.exists() or debt.user_id.id != user.id or debt.state != "open":
+            return request.redirect("/my/apps/expenses/debts")
+        wallets = self._wallet_model().search([("user_id", "=", user.id), ("active", "=", True)], order="sequence, id")
+        label = "Thu nợ" if debt.debt_type == "lend" else "Trả nợ"
+        return request.render("dt_expense.portal_expense_debt_payment_form", self._base_values(page_title=label, debt=debt, wallets=wallets, default_date=date.today().isoformat(), back_url="/my/apps/expenses/debts"))
+
     @http.route("/my/apps/expenses/debts/<int:debt_id>/payment", type="http", auth="user", website=True, methods=["POST"], csrf=True)
     def expense_debt_payment(self, debt_id, payment_amount="0", payment_date="", wallet_id=None, payment_note="", **kw):
+        user = request.env.user
         debt = self._debt_model().browse(debt_id)
-        if debt.exists() and debt.user_id.id == request.env.user.id and debt.state == "open":
+        if debt.exists() and debt.user_id.id == user.id and debt.state == "open":
             wallet = self._wallet_model().browse(self._safe_int(wallet_id)) if wallet_id else debt.wallet_id
-            if wallet.exists() and wallet.user_id.id == request.env.user.id:
-                debt.register_payment(self._parse_money(payment_amount), payment_date=self._parse_date(payment_date, date.today()), wallet=wallet, note=(payment_note or "").strip())
+            if wallet.exists() and wallet.user_id.id == user.id:
+                entry = debt.register_payment(self._parse_money(payment_amount), payment_date=self._parse_date(payment_date, date.today()), wallet=wallet, note=(payment_note or "").strip())
+                if entry:
+                    request.env["dt.media"].sudo().create_from_uploads(request.httprequest.files.getlist("media_files"), entry, owner_user=user)
         return request.redirect("/my/apps/expenses/debts")
 
     @http.route("/my/apps/expenses/debts/<int:debt_id>/cancel", type="http", auth="user", website=True, methods=["POST"], csrf=True)
@@ -696,7 +736,7 @@ class FamilyExpensePortal(http.Controller):
         return request.redirect("/my/apps/expenses/debts")
 
     @http.route("/my/apps/expenses/history", type="http", auth="user", website=True)
-    def expense_history(self, scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", wallet_id="", **kw):
+    def expense_history(self, scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", wallet_id="", debt_flow="", debt_id="", **kw):
         user = request.env.user
         scope = scope if scope in ("mine", "family") else "mine"
         member_value = self._safe_int(member_id)
@@ -704,12 +744,13 @@ class FamilyExpensePortal(http.Controller):
         parent_value = self._safe_int(parent_id)
         category_value = self._safe_int(category_id)
         wallet_value = self._safe_int(wallet_id)
+        debt_id_value = self._safe_int(debt_id)
         today = date.today()
         if not date_from and not date_to:
             start, end, month_label = self._period_range("month", today)
             date_from = start.strftime("%Y-%m-%d")
             date_to = end.strftime("%Y-%m-%d")
-        domain = self._activity_domain(user, scope=scope, search=search, member_id=member_value, member_ids=member_ids_value, date_from=self._parse_date(date_from), date_to=self._parse_date(date_to), entry_type=entry_type, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value)
+        domain = self._activity_domain(user, scope=scope, search=search, member_id=member_value, member_ids=member_ids_value, date_from=self._parse_date(date_from), date_to=self._parse_date(date_to), entry_type=entry_type, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value, debt_flow=debt_flow, debt_id=debt_id_value)
         all_entries = self._entry_model().search(domain, order="expense_date desc, id desc")
         total_income, total_expense, total_net = self._cash_report_buckets(all_entries)
         per_page = 20
@@ -742,16 +783,16 @@ class FamilyExpensePortal(http.Controller):
         qs = request.httprequest.query_string.decode() if request.httprequest.query_string else ""
         return_to = "/my/apps/expenses/history" + (("?" + qs) if qs else "")
         return_to_encoded = urlquote(return_to, safe="")
-        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", entries=entries, has_more=has_more, next_offset=per_page, month_label=month_label, search=search, scope=scope, member_id=member_value, selected_member_ids=member_ids_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value, parent_categories=parents, child_categories=children, wallets=wallets, total_income_label=self._format_money(total_income, short=False), total_expense_label=self._format_money(total_expense, short=False), total_net_label=self._format_money(total_net, show_plus=True, short=False), filter_count=filter_count, back_url="/my/apps/expenses", page_action_url="/my/apps/expenses/new", return_to_encoded=return_to_encoded, period_kind=period_kind))
+        return request.render("dt_expense.portal_expense_history", self._base_values(page_title="Lịch sử giao dịch", entries=entries, has_more=has_more, next_offset=per_page, month_label=month_label, search=search, scope=scope, member_id=member_value, selected_member_ids=member_ids_value, family_members=family_members, date_from=date_from, date_to=date_to, entry_type=entry_type, debt_flow=debt_flow, debt_id=debt_id_value, parent_id=parent_value, category_id=category_value, wallet_id=wallet_value, parent_categories=parents, child_categories=children, wallets=wallets, total_income_label=self._format_money(total_income, short=False), total_expense_label=self._format_money(total_expense, short=False), total_net_label=self._format_money(total_net, show_plus=True, short=False), filter_count=filter_count, back_url="/my/apps/expenses", page_action_url="/my/apps/expenses/new", return_to_encoded=return_to_encoded, period_kind=period_kind))
 
     @http.route("/my/apps/expenses/history/entries", type="http", auth="user", website=True)
-    def expense_history_entries(self, offset=0, scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", wallet_id="", **kw):
+    def expense_history_entries(self, offset=0, scope="mine", search="", member_id="", date_from="", date_to="", entry_type="", parent_id="", category_id="", wallet_id="", debt_flow="", debt_id="", **kw):
         user = request.env.user
         scope = scope if scope in ("mine", "family") else "mine"
         offset_value = max(0, self._safe_int(str(offset), 0))
         per_page = 20
         member_ids_value = self._safe_int_list(request.httprequest.args.getlist("member_ids"))
-        domain = self._activity_domain(user, scope=scope, search=search, member_id=self._safe_int(member_id), member_ids=member_ids_value, date_from=self._parse_date(date_from), date_to=self._parse_date(date_to), entry_type=entry_type, parent_id=self._safe_int(parent_id), category_id=self._safe_int(category_id), wallet_id=self._safe_int(wallet_id))
+        domain = self._activity_domain(user, scope=scope, search=search, member_id=self._safe_int(member_id), member_ids=member_ids_value, date_from=self._parse_date(date_from), date_to=self._parse_date(date_to), entry_type=entry_type, parent_id=self._safe_int(parent_id), category_id=self._safe_int(category_id), wallet_id=self._safe_int(wallet_id), debt_flow=debt_flow, debt_id=self._safe_int(debt_id))
         all_entries = self._entry_model().search(domain, order="expense_date desc, id desc")
         total = len(all_entries)
         entries = all_entries[offset_value:offset_value + per_page]
@@ -778,11 +819,13 @@ class FamilyExpensePortal(http.Controller):
             report_domain = [("accounting_month", ">=", start.replace(day=1)), ("accounting_month", "<=", end.replace(day=1))]
         report_domain = [("active", "=", True), ("user_id", "in", self._visible_user_ids(user, scope))] + report_domain
         entries = self._entry_model().search(report_domain, order="expense_date desc, id desc")
-        report = self._build_report(entries, group_mode=group_mode if group_mode in ("parent", "child") else "parent")
-        report["filter_date_from"] = start.isoformat()
-        report["filter_date_to"] = end.isoformat()
-        _, expense_total, _ = self._effect_buckets(entries.filtered(lambda e: e.entry_type == "expense"))
-        return request.render("dt_expense.portal_expense_report", self._base_values(page_title="Báo cáo chi tiêu", page_subtitle="Phân bổ theo danh mục · %s" % period_label, period=period, anchor=anchor_date.isoformat(), scope=scope, group_mode=group_mode, period_label=period_label, report=report, expense_total_label=self._format_money(expense_total, short=True), back_url="/my/apps/expenses"))
+        group_mode = group_mode if group_mode in ("parent", "child") else "parent"
+        report = self._build_report(entries, group_mode=group_mode, link_params={
+            "date_from": start.isoformat(),
+            "date_to": end.isoformat(),
+            "scope": scope,
+        })
+        return request.render("dt_expense.portal_expense_report", self._base_values(page_title="Báo cáo chi tiêu", page_subtitle="Phân bổ theo danh mục · %s" % period_label, period=period, anchor=anchor_date.isoformat(), scope=scope, group_mode=group_mode, period_label=period_label, report=report, expense_total_label=self._format_money(report["total"], short=False), back_url="/my/apps/expenses"))
 
     @http.route("/my/apps/expenses/title_suggestions", type="http", auth="user", website=True)
     def expense_title_suggestions(self, category_id="", q="", **kw):
