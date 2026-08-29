@@ -394,7 +394,7 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         if (!this.savePreview) { return; }
         const amountInput = this.el.querySelector('input[name="amount"]');
         const raw = amountInput ? amountInput.value : '';
-        this.savePreview.textContent = raw ? raw + 'vnđ' : '0vnđ';
+        this.savePreview.textContent = raw ? raw + 'đ' : '0đ';
     },
 
     async _refreshSuggestions(forceShow = false) {
