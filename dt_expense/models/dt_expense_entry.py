@@ -202,8 +202,6 @@ class FamilyExpenseEntry(models.Model):
                     raise ValidationError("Khoản chi và khoản thu phải có danh mục.")
                 if record.category_id.category_type and record.category_id.category_type != entry_type:
                     raise ValidationError("Danh mục đã chọn không khớp với loại giao dịch.")
-                if not record.category_id.is_leaf:
-                    raise ValidationError("Chỉ được chọn danh mục lá khi tạo giao dịch.")
             elif entry_type == "debt":
                 if record.category_id:
                     raise ValidationError("Giao dịch nợ không sử dụng danh mục thu chi.")
