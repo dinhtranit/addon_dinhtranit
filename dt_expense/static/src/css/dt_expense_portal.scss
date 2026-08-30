@@ -160,6 +160,7 @@
 .dt-category-card,
 .dt-wallet-card,
 .dt-debt-card,
+.dt-plan-card,
 .dt-month-card,
 .dt-filter-panel,
 .dt-report-donut-card,
@@ -486,6 +487,40 @@
     overflow: visible;
 }
 
+.dt-quick-cats__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dt-quick-cats__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    background: transparent;
+    color: var(--dt-muted);
+    cursor: pointer;
+    transition: transform .15s ease;
+}
+
+.dt-quick-cats__toggle[aria-expanded="true"] {
+    transform: rotate(180deg);
+}
+
+.dt-quick-cats__all {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    background: white;
+    padding: 10px 6px;
+    border-radius: 20px;
+    max-height: 360px;
+    overflow-y: auto;
+}
+
 .dt-quick-cat {
     min-width: 0;
     display: flex;
@@ -649,15 +684,13 @@
     min-width: 0;
 }
 
-.dt-eye-toggle-label { color: var(--dt-muted); font-weight: 800; font-size: 14px; }
-.dt-row-end { display: flex; justify-content: flex-end; }
-.dt-eye-toggle { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50%; border: 1px solid var(--dt-line); background: #fff; font-size: 16px; line-height: 1; cursor: pointer; }
+.dt-eye-toggle { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: 0 0 auto; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .78); font-size: 19px; line-height: 1; cursor: pointer; }
 
-.dt-wallet-card { display: flex; flex-direction: column; gap: 10px; }
+.dt-wallet-card { position: relative; display: flex; flex-direction: column; gap: 10px; }
 .dt-wallet-card__main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; min-width: 0; }
 .dt-wallet-card__info { min-width: 0; }
-.dt-wallet-card__actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.dt-wallet-edit { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 1px solid var(--dt-line); color: var(--dt-muted); text-decoration: none; flex: 0 0 auto; }
+.dt-wallet-card__actions { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dt-wallet-edit { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 1px solid var(--dt-line); color: var(--dt-muted); text-decoration: none; flex: 0 0 auto; cursor: pointer; font-size: 15px; }
 .dt-wallet-edit:hover { background: var(--dt-accent-soft); color: var(--dt-primary); border-color: var(--dt-primary); }
 
 .dt-history-main,
@@ -724,10 +757,24 @@
 }
 
 .dt-debts-page { gap: 14px; }
-.dt-debts-toolbar { display: flex; align-items: center; gap: 10px; }
-.dt-debts-toolbar .dt-chip-tabs { flex: 1 1 auto; }
-.dt-debts-add { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: var(--dt-primary); color: #fff; text-decoration: none; flex: 0 0 auto; }
-.dt-debts-add:hover { background: var(--dt-primary-dark); color: #fff; }
+
+.dt-chip-tabs--multi { flex-wrap: wrap; }
+.dt-chip-tabs--multi button {
+    border: 1px solid var(--dt-line);
+    background: #fffefa;
+    border-radius: 14px;
+    padding: 7px 14px;
+    color: var(--dt-muted);
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+.dt-chip-tabs--multi button.is-active {
+    background: var(--dt-primary);
+    border-color: var(--dt-primary);
+    color: #fff;
+    box-shadow: 0 8px 16px rgba(85, 132, 86, .18);
+}
 
 .dt-debt-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
 .dt-debt-card__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
@@ -735,7 +782,8 @@
 .dt-debt-card__title h3 { margin: 0; font-size: 16px; font-weight: 800; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; }
 .dt-debt-card__remaining { font-size: 15px; font-weight: 800; color: var(--dt-text); white-space: nowrap; }
 .dt-debt-card__meta { font-size: 12px; color: var(--dt-muted); font-weight: 600; }
-.dt-debt-card__actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+.dt-debt-card__actions { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+.dt-debt-card__icon-group { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .dt-debt-edit { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 1px solid var(--dt-line); color: var(--dt-muted); text-decoration: none; }
 .dt-debt-edit:hover { background: var(--dt-accent-soft); color: var(--dt-primary); border-color: var(--dt-primary); }
 
@@ -743,9 +791,17 @@
 .dt-debt-badge--lend { background: var(--dt-green-soft); color: var(--dt-primary-dark); }
 .dt-debt-badge--borrow { background: #ffe2d6; color: var(--dt-accent); }
 
+.dt-plan-card { position: relative; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.dt-plan-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; width: fit-content; text-transform: uppercase; letter-spacing: .3px; }
+.dt-plan-badge--active { background: var(--dt-green-soft); color: var(--dt-primary-dark); }
+.dt-plan-badge--done { background: var(--dt-accent-soft); color: var(--dt-accent); }
+.dt-plan-badge--archived { background: var(--dt-line); color: var(--dt-muted); }
+
 .dt-btn--sm { padding: 6px 14px; font-size: 13px; border-radius: 12px; font-weight: 700; }
 
 .dt-mini-payment {
+    position: relative;
+    z-index: 2;
     display: grid;
     grid-template-columns: 1fr 1fr auto;
     gap: 8px;
