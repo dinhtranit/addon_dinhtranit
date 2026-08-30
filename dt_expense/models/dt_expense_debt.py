@@ -36,6 +36,7 @@ class FamilyExpenseDebt(models.Model):
     active = fields.Boolean(default=True)
     initial_entry_id = fields.Many2one("dt.expense.entry", ondelete="set null", copy=False, string="Giao dịch phát sinh")
     entry_ids = fields.One2many("dt.expense.entry", "debt_id", string="Giao dịch nợ")
+    plan_id = fields.Many2one("dt.expense.plan", string="Kế hoạch", ondelete="set null", index=True)
 
     @api.model
     def _default_currency_id(self):
@@ -83,7 +84,7 @@ class FamilyExpenseDebt(models.Model):
 
     def write(self, vals):
         result = super().write(vals)
-        if any(key in vals for key in ("debt_type", "counterparty", "amount", "wallet_id", "debt_date", "note", "state", "active")):
+        if any(key in vals for key in ("debt_type", "counterparty", "amount", "wallet_id", "debt_date", "note", "state", "active", "plan_id")):
             for debt in self:
                 if debt.state == "cancelled" or not debt.active:
                     if debt.initial_entry_id:
@@ -139,6 +140,7 @@ class FamilyExpenseDebt(models.Model):
                 "accounting_month": debt.debt_date.replace(day=1),
                 "user_id": debt.user_id.id,
                 "category_id": False,
+                "plan_id": debt.plan_id.id or False,
                 "note": debt.note or debt.display_name,
                 "active": True,
             }

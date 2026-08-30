@@ -106,6 +106,10 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
     },
 
     _updateFontSize() {
+        if (this.el.dataset.moneyInputSize === 'sm') {
+            this.el.style.fontSize = '';
+            return;
+        }
         const len = (this.el.value || '').length;
         const size = len <= 7 ? 58 : len <= 10 ? 44 : len <= 12 ? 36 : 30;
         this.el.style.fontSize = size + 'px';

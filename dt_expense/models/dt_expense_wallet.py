@@ -22,6 +22,7 @@ class FamilyExpenseWallet(models.Model):
     opening_date = fields.Date(default=fields.Date.context_today)
     note = fields.Char()
     active = fields.Boolean(default=True)
+    is_primary = fields.Boolean(string="Nguồn tiền chính", default=False)
     entry_count = fields.Integer(compute="_compute_entry_count")
     balance = fields.Monetary(compute="_compute_balance", currency_field="currency_id")
     balance_label = fields.Char(compute="_compute_balance")
@@ -60,7 +61,20 @@ class FamilyExpenseWallet(models.Model):
                 vals["code"] = seq.next_by_code("dt.expense.wallet") or "WALLET"
             vals.setdefault("user_id", self.env.user.id)
             vals.setdefault("currency_id", self._default_currency_id())
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        for wallet in records.filtered("is_primary"):
+            self._unset_other_primary(wallet)
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        if vals.get("is_primary"):
+            for wallet in self:
+                self._unset_other_primary(wallet)
+        return result
+
+    def _unset_other_primary(self, wallet):
+        self.search([("user_id", "=", wallet.user_id.id), ("id", "!=", wallet.id), ("is_primary", "=", True)]).write({"is_primary": False})
 
     @api.constrains("opening_balance")
     def _check_vnd_integer(self):
@@ -74,6 +88,9 @@ class FamilyExpenseWallet(models.Model):
         user = user or self.env.user
         if isinstance(user, int):
             user = self.env["res.users"].sudo().browse(user)
+        wallet = self.sudo().search([("user_id", "=", user.id), ("is_primary", "=", True), ("active", "=", True)], limit=1)
+        if wallet:
+            return wallet
         wallet = self.sudo().search([("user_id", "=", user.id), ("active", "=", True)], order="sequence, id", limit=1)
         if wallet:
             return wallet
@@ -83,6 +100,7 @@ class FamilyExpenseWallet(models.Model):
             "sequence": 1,
             "user_id": user.id,
             "currency_id": self._default_currency_id(),
+            "is_primary": True,
         })
 
     @api.model

@@ -46,6 +46,7 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         'click [data-category-id]': '_onQuickCategoryClick',
         'click [data-show-all-categories]': '_showAllCategories',
         'click [data-hide-all-categories]': '_hideAllCategories',
+        'click [data-toggle-parent-list="1"]': '_onToggleParentList',
         'change [data-entry-type-hidden="1"]': '_updateState',
         'change [data-category-select="1"]': '_onCategoryChange',
         'input [data-title-input="1"]': '_onTitleInput',
@@ -69,6 +70,8 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this.accountingMonth = this.el.querySelector('[data-accounting-month="1"]');
         this.savePreview = this.el.querySelector('[data-save-amount-preview="1"]');
         this.allCategories = this.el.querySelector('[data-all-categories="1"]');
+        this.parentListPanel = this.el.querySelector('[data-parent-list="1"]');
+        this.parentListToggle = this.el.querySelector('[data-toggle-parent-list="1"]');
         this._suggestionRequest = 0;
         this.quickRow = this.el.querySelector('.dt-quick-cats__row');
         this._snapshotOriginalQuickRow();
@@ -217,6 +220,14 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         });
         if (this.addMoreBtn) { this.quickRow.appendChild(this.addMoreBtn.cloneNode(true)); }
         this.quickRow.scrollLeft = 0;
+    },
+
+    _onToggleParentList(ev) {
+        ev.preventDefault();
+        if (!this.parentListPanel) { return; }
+        this.parentListPanel.classList.toggle('d-none');
+        const expanded = !this.parentListPanel.classList.contains('d-none');
+        if (this.parentListToggle) { this.parentListToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false'); }
     },
 
     _onTabClick(ev) {
@@ -369,6 +380,11 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this.el.querySelectorAll('[data-cat-item="1"]').forEach((chip) => {
             chip.classList.toggle('is-active', this.categorySelect && chip.dataset.categoryId === this.categorySelect.value);
         });
+        if (this.parentListPanel) {
+            this.parentListPanel.querySelectorAll('[data-category-id]').forEach((btn) => {
+                btn.hidden = btn.dataset.entryType !== currentType;
+            });
+        }
         this._rebuildQuickRow();
         this._onDateChange();
         this._refreshSuggestions();
@@ -500,7 +516,7 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
         'click [data-cat-filter-group="1"]': '_onCatFilterGroupPick',
         'click [data-cat-filter-clear="1"]': '_onCatFilterClear',
         'input [data-cat-filter-search="1"]': '_onCatFilterSearch',
-        'click [data-balance-toggle="1"]': '_onBalanceToggle',
+        'click [data-multi-filter]': '_onMultiFilterToggle',
     },
 
     start() {
@@ -519,14 +535,17 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
         if (adv) { adv.classList.toggle('d-none'); }
     },
 
-    _onBalanceToggle() {
-        const isVisible = document.cookie.split('; ').some((c) => c === 'dt_balance_visible=1');
-        if (isVisible) {
-            document.cookie = 'dt_balance_visible=; max-age=0; path=/';
-        } else {
-            document.cookie = 'dt_balance_visible=1; max-age=1800; path=/';
-        }
-        window.location.reload();
+    _onMultiFilterToggle(ev) {
+        const btn = ev.currentTarget;
+        const key = btn.dataset.multiFilter;
+        const value = btn.dataset.multiFilterValue;
+        const url = new URL(window.location.href);
+        const current = url.searchParams.getAll(key);
+        const isActive = current.includes(value);
+        const next = isActive ? current.filter((v) => v !== value) : [...current, value];
+        url.searchParams.delete(key);
+        next.forEach((v) => url.searchParams.append(key, v));
+        window.location.href = url.toString();
     },
 
     _onMemberOpen(ev) {
@@ -634,6 +653,7 @@ publicWidget.registry.DTExpensePage = publicWidget.Widget.extend({
             wallet_id: sentinel.dataset.walletId || '',
             debt_flow: sentinel.dataset.debtFlow || '',
             debt_id: sentinel.dataset.debtId || '',
+            plan_id: sentinel.dataset.planId || '',
         });
         const memberIdsRaw = sentinel.dataset.memberIds || '';
         if (memberIdsRaw) {
