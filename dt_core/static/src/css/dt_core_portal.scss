@@ -521,3 +521,57 @@
     color: var(--dt-muted);
     font-weight: 800;
 }
+
+
+/* ---- Shared spinner (save button + media upload overlay) ------------------- */
+.dt-btn-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    vertical-align: -3px;
+    border: 2px solid rgba(255, 255, 255, .45);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: dt-btn-spin .6s linear infinite;
+}
+
+@keyframes dt-btn-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ---- Upload state on each picked photo ------------------------------------ */
+/* Photos start uploading the moment they are picked, so every tile has to say where
+   it is: still going, done, or failed and retryable. */
+.dt-media-tile__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px;
+    border: 0;
+    background: rgba(40, 28, 18, .55);
+    color: #fff;
+    font-weight: 800;
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.3;
+}
+
+.dt-media-tile__overlay .dt-btn-spinner {
+    margin-right: 0;
+    vertical-align: baseline;
+}
+
+.dt-media-tile__overlay--error {
+    background: rgba(160, 52, 34, .82);
+    cursor: pointer;
+}
+
+.dt-media-tile--new.is-uploading img {
+    filter: saturate(.5);
+}

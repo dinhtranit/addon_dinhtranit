@@ -118,7 +118,16 @@ class FamilyMemoirePortal(http.Controller):
             diary.write(vals)
         else:
             diary = Diary.create(vals)
-        request.env["dt.media"].sudo().create_from_uploads(request.httprequest.files.getlist("media_files"), diary, owner_user=user, mark_first_cover=True)
+        media_model = request.env["dt.media"].sudo()
+        # Same background-upload flow as the expense form: media picked earlier is already
+        # stored and only needs claiming; anything left in the form takes the old path.
+        already_uploaded = media_model.attach_staged(
+            (kw.get("media_ids") or "").split(","), diary, owner_user=user, mark_first_cover=True
+        )
+        media_model.create_from_uploads(
+            request.httprequest.files.getlist("media_files"), diary,
+            owner_user=user, mark_first_cover=not already_uploaded,
+        )
         return request.redirect(f"/my/apps/memories/{diary.id}")
 
     @http.route("/my/apps/memories/<int:diary_id>/delete", type="http", auth="user", website=True, methods=["POST"], csrf=True)

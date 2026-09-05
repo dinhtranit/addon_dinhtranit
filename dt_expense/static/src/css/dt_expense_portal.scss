@@ -478,7 +478,7 @@
 
 .dt-quick-cats__row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px;
     background: white;
     padding: 10px 6px;
@@ -512,13 +512,19 @@
 
 .dt-quick-cats__all {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px;
     background: white;
     padding: 10px 6px;
     border-radius: 20px;
-    max-height: 360px;
+    /* ~4 rows of leaf categories stay visible; the rest (and "Xem thêm") scroll. */
+    max-height: 340px;
     overflow-y: auto;
+}
+
+.dt-quick-cat--more > span {
+    font-size: 20px;
+    color: var(--dt-muted);
 }
 
 .dt-quick-cat {
@@ -527,7 +533,7 @@
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    padding: 10px 4px;
+    padding: 10px 2px;
     border: 0;
     background: transparent;
     color: var(--dt-text);
@@ -537,19 +543,19 @@
 }
 
 .dt-quick-cat > span {
-    font-size: 28px;
+    font-size: 24px;
     line-height: 1;
 }
 
 .dt-quick-cat > span img {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     object-fit: cover;
 }
 
 .dt-quick-cat > small {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     text-align: center;
     width: 100%;
@@ -673,6 +679,14 @@
     border-radius: 22px;
     background: var(--dt-primary);
 }
+
+.dt-save-bar .dt-btn:disabled,
+.dt-save-bar .dt-btn.is-loading {
+    opacity: .7;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 
 .dt-category-card__head,
 .dt-history-row,
@@ -1126,4 +1140,120 @@ a.dt-report-detail-row:hover, a.dt-report-line:hover { background: rgba(182, 85,
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+
+/* ---- Detail screen: amount block ------------------------------------------- */
+/* The "-" sign and the "đ" unit are marked unselectable so dragging across the
+   amount copies just the digits (e.g. 700.000), which is what the number is
+   usually needed for elsewhere. */
+.dt-amount-panel--view {
+    justify-items: stretch;
+    gap: 6px;
+}
+
+.dt-amount-panel__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.dt-amount-created {
+    color: var(--dt-text);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.dt-amount-created .fa {
+    margin-right: 4px;
+    opacity: .55;
+}
+
+.dt-amount-value {
+    display: block;
+    text-align: center;
+    font-size: 40px;
+    line-height: 1.05;
+    font-weight: 900;
+    word-break: break-word;
+}
+
+.dt-amount-affix {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.dt-amount-number {
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+/* ---- Detail screen: action bar --------------------------------------------- */
+/* Sits above anything else in the panel and gives every action an equal, full
+   height tap target — the delete button used to be an unreachable sliver. */
+.dt-detail-actions {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.dt-detail-actions > a,
+.dt-detail-actions__form {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+}
+
+.dt-detail-actions .dt-btn {
+    flex: 1 1 auto;
+    width: 100%;
+    padding: 14px 10px;
+    white-space: nowrap;
+}
+
+/* ---- Edit form: upload button lines up with the fields above --------------- */
+.dt-line-field > .dt-file-button--end {
+    justify-self: end;
+}
+
+/* ---- Smarter description suggestions --------------------------------------- */
+.dt-autocomplete-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+}
+
+.dt-autocomplete-item__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dt-autocomplete-item__amount {
+    flex: 0 0 auto;
+    color: var(--dt-muted);
+    font-size: 12px;
+    font-weight: 900;
+}
+
+/* Shown only when a save stalls, so the user is never left with a dead button. */
+.dt-save-stalled-note {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: #fbeae5;
+    border: 1px solid #e8b4a8;
+    color: #b14b3a;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.4;
+    text-align: center;
 }

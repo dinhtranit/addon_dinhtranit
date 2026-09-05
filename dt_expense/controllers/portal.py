@@ -343,10 +343,15 @@ class FamilyExpensePortal(http.Controller):
             "borrow_debts": borrow_debts,
         }
 
-    def _entry_form_values(self, entry=False, active_tab="expense", plan_id=None):
+    def _entry_form_values(self, entry=False, active_tab="expense", plan_id=None, source=False):
         user = request.env.user
         entry = entry.sudo() if entry else False
-        current_type = entry.entry_type if entry else active_tab
+        # "source" = an entry we are duplicating. It fills the form exactly like an edit
+        # would, but `entry` stays False so the form still posts as a brand new record
+        # (no entry_id hidden input, no delete form) and the date resets to today.
+        source = source.sudo() if source else False
+        prefill = entry or source
+        current_type = prefill.entry_type if prefill else active_tab
         if current_type not in ("expense", "income", "adjustment"):
             current_type = "expense"
 
@@ -406,27 +411,38 @@ class FamilyExpensePortal(http.Controller):
 
         # All selectable = leaf + parent (select element options)
         all_selectable = leaf_categories | parent_categories
-        if entry and entry.category_id and entry.category_id not in all_selectable:
-            all_selectable |= entry.category_id
+        if prefill and prefill.category_id and prefill.category_id not in all_selectable:
+            all_selectable |= prefill.category_id
 
-        # Quick row = top 7 parent categories per type by 6-month group usage
+        # Quick row = top 10 parent categories per type by 6-month group usage (5 per row x 2)
         parents_by_type = {
             "expense": parent_categories.filtered(lambda c: c.category_type == "expense"),
             "income": parent_categories.filtered(lambda c: c.category_type == "income"),
         }
         def _pick_quick_parent(items):
-            return items.sorted(key=lambda p: (-six_month_group_usage.get(p.id, 0), p.sequence, p.id))[:7]
+            return items.sorted(key=lambda p: (-six_month_group_usage.get(p.id, 0), p.sequence, p.id))[:10]
         quick_categories = _pick_quick_parent(parents_by_type["expense"]) | _pick_quick_parent(parents_by_type["income"])
         # Covers every parent (not just the quick subset) so the "expand" panel can reuse it.
         quick_has_children = {cat.id: bool(leaf_by_parent.get(cat.id)) for cat in parent_categories}
+
+        # Expanded ("show more") panel = top 20 LEAF categories per type by 6-month usage
+        # (5 per row x 4). These are already leaves, so tapping one selects it directly
+        # instead of opening the modal.
+        leaves_by_type = {
+            "expense": leaf_categories.filtered(lambda c: c.category_type == "expense"),
+            "income": leaf_categories.filtered(lambda c: c.category_type == "income"),
+        }
+        def _pick_top_children(items):
+            return items.sorted(key=lambda c: (-six_month_counts.get(c.id, 0), c.sequence, c.id))[:20]
+        top_child_categories = _pick_top_children(leaves_by_type["expense"]) | _pick_top_children(leaves_by_type["income"])
 
         wallets = self._wallet_model().search([("user_id", "=", user.id), ("active", "=", True)], order="sequence, id")
         if not wallets:
             wallets = self._wallet_model().get_default_wallet(user)
         media_items = entry.get_media_items() if entry else request.env["dt.media"].sudo().browse()
-        page_title = "Sửa giao dịch" if entry else "Ghi chép GD"
+        page_title = "Sửa giao dịch" if entry else ("Nhân bản giao dịch" if source else "Ghi chép GD")
         plans = self._plan_model().search([("user_id", "=", user.id), ("state", "!=", "archived")], order="create_date desc")
-        plan = entry.plan_id if entry else self._resolve_plan(user, plan_id)
+        plan = prefill.plan_id if prefill else self._resolve_plan(user, plan_id)
         return self._base_values(
             page_title=page_title,
             page_subtitle="Nhập nhanh thu chi",
@@ -436,14 +452,16 @@ class FamilyExpensePortal(http.Controller):
             quick_categories=quick_categories,
             quick_has_children=quick_has_children,
             parent_categories=sorted_parents,
+            top_child_categories=top_child_categories,
+            prefill=prefill,
             grouped_cats=grouped_cats,
             wallets=wallets,
-            default_wallet=entry.wallet_id if entry else self._wallet_model().get_default_wallet(user),
+            default_wallet=(prefill.wallet_id if prefill and prefill.wallet_id else self._wallet_model().get_default_wallet(user)),
             media_items=media_items,
             current_user=user.sudo(),
             default_date=(entry.expense_date.isoformat() if entry and entry.expense_date else date.today().isoformat()),
             default_accounting_month=(entry.accounting_month.isoformat() if entry and entry.accounting_month else date.today().replace(day=1).isoformat()),
-            amount_input_value=(self._format_input_money(entry.amount) if entry else ""),
+            amount_input_value=(self._format_input_money(prefill.amount) if prefill else ""),
             plans=plans,
             plan=plan,
             return_to=("/my/apps/expenses/plans/%s" % plan.id if plan else ""),
@@ -459,9 +477,24 @@ class FamilyExpensePortal(http.Controller):
         return request.render("dt_expense.portal_expense_home", values)
 
     @http.route("/my/apps/expenses/new", type="http", auth="user", website=True)
-    def expense_new(self, entry_type="expense", plan_id=None, **kw):
+    def expense_new(self, entry_type="expense", plan_id=None, copy_from=None, **kw):
         active_tab = entry_type if entry_type in ("expense", "income", "adjustment") else "expense"
-        return request.render("dt_expense.portal_expense_form", self._entry_form_values(entry=False, active_tab=active_tab, plan_id=self._safe_int(plan_id)))
+        source = self._resolve_copy_source(copy_from)
+        return request.render("dt_expense.portal_expense_form", self._entry_form_values(entry=False, active_tab=active_tab, plan_id=self._safe_int(plan_id), source=source))
+
+    def _resolve_copy_source(self, copy_from):
+        """Entry being duplicated. Only the owner may copy, and only ordinary entries —
+        debt / transfer / plan-fund rows are generated by their own flows and must not be
+        cloned into a free-standing entry."""
+        source_id = self._safe_int(copy_from)
+        if not source_id:
+            return False
+        source = self._entry_model().browse(source_id)
+        if not source.exists() or source.user_id.id != request.env.user.id:
+            return False
+        if source.entry_type not in ("expense", "income", "adjustment"):
+            return False
+        return source
 
     def _safe_return_to(self, return_to, fallback):
         if return_to and isinstance(return_to, str) and return_to.startswith("/my/apps/"):
@@ -535,7 +568,18 @@ class FamilyExpensePortal(http.Controller):
             entry.write(vals)
         else:
             entry = entry_model.create(vals)
-        request.env["dt.media"].sudo().create_from_uploads(request.httprequest.files.getlist("media_files"), entry, owner_user=user, mark_first_cover=True)
+        media_model = request.env["dt.media"].sudo()
+        # Photos are normally uploaded in the background while the form is being filled
+        # in, so by now they only need claiming — that is a couple of writes rather than
+        # several seconds of transfer and image processing. Any file still sitting in the
+        # form (JS disabled, or a background upload that failed) takes the old path.
+        already_uploaded = media_model.attach_staged(
+            (kw.get("media_ids") or "").split(","), entry, owner_user=user, mark_first_cover=True
+        )
+        media_model.create_from_uploads(
+            request.httprequest.files.getlist("media_files"), entry,
+            owner_user=user, mark_first_cover=not already_uploaded,
+        )
         return request.redirect(self._safe_return_to(return_to, "/my/apps/expenses/history"))
 
     @http.route("/my/apps/expenses/balance/save", type="http", auth="user", website=True, methods=["POST"], csrf=True)
@@ -1076,17 +1120,45 @@ class FamilyExpensePortal(http.Controller):
             allowed_ids = self._category_model().search(self._category_domain(user)).ids
             allowed_category = category.id in allowed_ids
         if allowed_category:
-            suggestions = self._suggestion_model().search([("category_id", "=", category.id), ("active", "=", True)], order="sequence, id")
-            histories = self._history_model().search([("user_id", "=", user.id), ("category_id", "=", category.id)], order="used_count desc, last_used_at desc", limit=15)
-            for item in list(suggestions) + list(histories):
+            # Learn from the user's own past entries in this category: group them by
+            # description, rank by how often each description was used, and carry the most
+            # recent amount along so that picking a suggestion also fills the money field.
+            past = self._entry_model().search([
+                ("user_id", "=", user.id), ("active", "=", True),
+                ("category_id", "=", category.id),
+                ("entry_type", "in", ("expense", "income")),
+                ("name", "!=", False),
+            ], order="expense_date desc, id desc", limit=400)
+            stats = {}
+            for item in past:
                 label = (item.name or "").strip()
                 if not label:
                     continue
+                key = label.lower()
+                row = stats.get(key)
+                if row is None:
+                    # First time we see a description is also its most recent occurrence,
+                    # because the search above is ordered newest first.
+                    stats[key] = {"label": label, "count": 1, "amount": item.amount}
+                else:
+                    row["count"] += 1
+            for row in sorted(stats.values(), key=lambda r: (-r["count"], r["label"].lower())):
+                if query and query.lower() not in row["label"].lower():
+                    continue
+                seen.add(row["label"].lower())
+                rows.append({
+                    "label": row["label"],
+                    "amount": self._format_input_money(row["amount"]) if row["amount"] else "",
+                    "count": row["count"],
+                })
+            # Hand-configured suggestions fill the tail; they carry no amount.
+            suggestions = self._suggestion_model().search([("category_id", "=", category.id), ("active", "=", True)], order="sequence, id")
+            for item in suggestions:
+                label = (item.name or "").strip()
+                if not label or label.lower() in seen:
+                    continue
                 if query and query.lower() not in label.lower():
                     continue
-                key = label.lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                rows.append({"label": label})
+                seen.add(label.lower())
+                rows.append({"label": label, "amount": "", "count": 0})
         return request.make_response(json.dumps(rows[:12]), headers=[("Content-Type", "application/json")])
