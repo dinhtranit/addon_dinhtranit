@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import base64
+import json
 import re
 from email.utils import formatdate
 
@@ -10,6 +11,62 @@ from werkzeug.wrappers import Response
 
 
 class FamilyMediaPortal(http.Controller):
+
+    # Models the portal is allowed to stage uploads for. Anything else is refused so a
+    # crafted request cannot create attachments pointing at arbitrary models.
+    STAGED_UPLOAD_MODELS = ("dt.expense.entry", "dt.memoire.diary")
+
+    @http.route("/my/family/media/upload", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def media_upload(self, res_model="", **kw):
+        """Upload a single file before its record exists.
+
+        The portal calls this as soon as a photo is picked, so the slow part (transfer
+        plus image processing) overlaps with the user filling in the rest of the form.
+        Saving the form afterwards only has to reference the returned media id.
+        """
+        if res_model not in self.STAGED_UPLOAD_MODELS:
+            return self._json_response({"error": "res_model_not_allowed"}, status=400)
+        upload = request.httprequest.files.get("file")
+        if not upload:
+            return self._json_response({"error": "no_file"}, status=400)
+        try:
+            media = request.env["dt.media"].sudo().create_staged_upload(
+                upload, res_model, owner_user=request.env.user
+            )
+        except Exception:
+            request.env.cr.rollback()
+            return self._json_response({"error": "upload_failed"}, status=500)
+        if not media:
+            return self._json_response({"error": "empty_file"}, status=400)
+        return self._json_response({
+            "id": media.id,
+            "url": media.image_url(),
+            "media_type": media.media_type,
+            "name": media.name,
+        })
+
+    @http.route("/my/family/media/<int:media_id>/discard", type="http", auth="user", website=True, methods=["POST"], csrf=True)
+    def media_discard(self, media_id, **kw):
+        """Drop a staged upload the user picked by mistake.
+
+        Deliberately narrow: only media that is still unattached (``res_id = 0``) and
+        owned by the caller can be discarded, so this can never be used to strip a photo
+        off someone's saved entry.
+        """
+        media = request.env["dt.media"].sudo().browse(media_id)
+        if not media.exists():
+            return self._json_response({"ok": True})
+        if media.res_id or media.owner_user_id.id != request.env.user.id:
+            return self._json_response({"error": "not_discardable"}, status=403)
+        media.unlink()
+        return self._json_response({"ok": True})
+
+    def _json_response(self, payload, status=200):
+        return request.make_response(
+            json.dumps(payload),
+            headers=[("Content-Type", "application/json")],
+            status=status,
+        )
 
     @http.route("/my/family/media/<int:media_id>/content", type="http", auth="user", website=True)
     def media_content(self, media_id, download="", **kw):

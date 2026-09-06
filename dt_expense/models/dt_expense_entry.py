@@ -392,6 +392,28 @@ class FamilyExpenseEntry(models.Model):
         return float(-amount if negative else amount)
 
     @api.model
+    def get_amount_parts(self):
+        """Split amount_label into sign / number / unit so the template can render them
+        as separate spans. The sign and the "đ" unit get user-select:none in CSS, which
+        lets the user drag-select just the digits (e.g. to copy 700.000 elsewhere)."""
+        self.ensure_one()
+        label = self.amount_label or ""
+        sign = ""
+        if label[:1] in ("-", "+"):
+            sign, label = label[0], label[1:]
+        unit = ""
+        if label.endswith("đ"):
+            unit, label = "đ", label[:-1]
+        return {"sign": sign, "number": label, "unit": unit}
+
+    def get_created_label(self):
+        """Local-time creation timestamp, for the detail screen."""
+        self.ensure_one()
+        if not self.create_date:
+            return ""
+        stamp = fields.Datetime.context_timestamp(self, self.create_date)
+        return stamp.strftime("%H:%M · %d/%m/%Y")
+
     def _format_money(self, amount, show_plus=False, short=False):
         rounded = int(round(amount or 0.0))
         prefix = ""

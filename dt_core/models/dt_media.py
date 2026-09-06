@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import base64
 import mimetypes
 import re
 from pathlib import Path
@@ -92,7 +91,10 @@ class FamilyMedia(models.Model):
             media_type = "image" if mimetype.startswith("image/") else "video" if mimetype.startswith("video/") else "file"
             attachment = self.env["ir.attachment"].sudo().create({
                 "name": filename,
-                "datas": base64.b64encode(content),
+                # `raw` takes the bytes straight through. Using `datas` would base64-encode
+                # here only for Odoo to decode it again, which on a phone photo means two
+                # extra copies of several MB for nothing.
+                "raw": content,
                 "mimetype": mimetype,
                 "res_model": record._name,
                 "res_id": record.id,
@@ -113,6 +115,96 @@ class FamilyMedia(models.Model):
                 "is_cover": mark_first_cover and idx == 0 and existing_count == 0,
             })
         return created
+
+    @api.model
+    def create_staged_upload(self, upload, res_model, owner_user=None):
+        """Store one upload straight away, before the record it belongs to exists.
+
+        The portal starts uploading a photo the moment it is picked, in parallel with
+        the user still typing the amount and description. The media row is therefore
+        created "unattached" (``res_id = 0``) and later claimed by ``attach_staged``
+        once the entry is saved. Rows that are never claimed are swept up here on the
+        next upload, so an abandoned form leaves nothing behind for long.
+        """
+        owner_user = owner_user or self.env.user
+        if not upload:
+            return self.browse()
+        content = upload.read()
+        if not content:
+            return self.browse()
+        self._sweep_stale_staged(owner_user)
+        filename = getattr(upload, "filename", None) or "upload"
+        mimetype = getattr(upload, "mimetype", None) or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        media_type = "image" if mimetype.startswith("image/") else "video" if mimetype.startswith("video/") else "file"
+        attachment = self.env["ir.attachment"].sudo().create({
+            "name": filename,
+            "raw": content,
+            "mimetype": mimetype,
+            "res_model": res_model,
+            "res_id": 0,
+            "public": False,
+            "type": "binary",
+        })
+        return self.sudo().create({
+            "name": self._clean_label(Path(filename).stem) or filename,
+            "res_model": res_model,
+            "res_id": 0,
+            "owner_user_id": owner_user.id,
+            "attachment_id": attachment.id,
+            "media_type": media_type,
+            "original_filename": filename,
+            "mimetype": mimetype,
+            "file_size": len(content),
+            "sequence": 10,
+        })
+
+    @api.model
+    def attach_staged(self, media_ids, record, owner_user=None, mark_first_cover=False):
+        """Claim previously staged uploads for ``record``, keeping the order given."""
+        owner_user = owner_user or self.env.user
+        if not record or not record.exists() or not media_ids:
+            return self.browse()
+        wanted = [int(value) for value in media_ids if str(value).strip().isdigit()]
+        if not wanted:
+            return self.browse()
+        staged = self.sudo().search([
+            ("id", "in", wanted),
+            ("res_model", "=", record._name),
+            ("res_id", "=", 0),
+            ("owner_user_id", "=", owner_user.id),
+        ])
+        if not staged:
+            return self.browse()
+        by_id = {media.id: media for media in staged}
+        # Preserve the order the browser sent, not database order.
+        ordered = [by_id[mid] for mid in wanted if mid in by_id]
+        existing_count = self.sudo().search_count([
+            ("res_model", "=", record._name),
+            ("res_id", "=", record.id),
+        ])
+        seq_base = (existing_count + 1) * 10
+        claimed = self.browse()
+        for idx, media in enumerate(ordered):
+            media.write({
+                "res_id": record.id,
+                "sequence": seq_base + idx,
+                "is_cover": mark_first_cover and idx == 0 and existing_count == 0,
+            })
+            media.attachment_id.sudo().write({"res_id": record.id})
+            claimed |= media
+        return claimed
+
+    @api.model
+    def _sweep_stale_staged(self, owner_user, max_age_hours=24):
+        """Drop this user's staged uploads that were never attached to a record."""
+        cutoff = fields.Datetime.subtract(fields.Datetime.now(), hours=max_age_hours)
+        stale = self.sudo().search([
+            ("res_id", "=", 0),
+            ("owner_user_id", "=", owner_user.id),
+            ("create_date", "<", cutoff),
+        ])
+        if stale:
+            stale.unlink()
 
     @api.model
     def search_for_record(self, record):

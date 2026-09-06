@@ -84,7 +84,7 @@
                     <div class="dt-screen-head"><h1>Tạo kỷ niệm</h1><p>Ghi lại một khoảnh khắc</p></div>
                     <div class="dt-memory-upload-box">
                         <div class="dt-block-title">Ảnh &amp; video</div>
-                        <input class="dt-file-input" type="file" name="media_files" multiple="multiple" accept="image/*,video/*" data-file-input="1"/><span class="dt-file-button">Tải file</span>
+                        <input class="dt-file-input" type="file" name="media_files" multiple="multiple" accept="image/*,video/*" data-file-input="1" data-upload-model="dt.memoire.diary"/><span class="dt-file-button">Tải file</span>
                         <div class="dt-upload-preview" t-if="diary and diary.get_media_items()">
                             <t t-foreach="diary.get_media_items()" t-as="media">
                                 <div class="dt-upload-thumb"><img t-if="media.media_type == 'image'" t-att-src="media.image_url()"/><video t-if="media.media_type == 'video'" t-att-src="media.stream_url()" preload="metadata"></video></div>
