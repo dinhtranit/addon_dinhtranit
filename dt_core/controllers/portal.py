@@ -25,6 +25,18 @@ class FamilyPortalCore(http.Controller):
     def apps_home(self, **kw):
         return request.redirect("/my/apps/expenses")
 
+    @http.route("/my/family/balance-toggle", type="http", auth="user", website=True, methods=["POST"])
+    def toggle_balance_visible(self, return_to="", **kw):
+        # Plain form POST + redirect, no JS: the previous version used a JS click
+        # handler that flipped a cookie and reloaded. Storing the choice on the user
+        # record instead means there is nothing left to keep in sync client-side -
+        # the button is just a form now, and whatever the DB says is always what
+        # renders, on any device, with no expiry.
+        user = request.env.user
+        user.sudo().write({"dt_balance_visible": not user.dt_balance_visible})
+        target = return_to if return_to.startswith("/") else "/my/apps/expenses"
+        return request.redirect(target)
+
     @http.route("/my/profile", type="http", auth="user", website=True)
     def my_profile(self, **kw):
         user = request.env.user

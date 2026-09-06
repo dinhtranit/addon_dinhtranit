@@ -20,7 +20,6 @@
             "dt_core/static/src/css/dt_core_portal.scss",
             "dt_core/static/src/js/dt_money_input.js",
             "dt_core/static/src/js/dt_file_input.js",
-            "dt_core/static/src/js/dt_balance_toggle.js",
         ],
     },
     "application": False,

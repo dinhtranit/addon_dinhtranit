@@ -7,6 +7,11 @@ class ResUsers(models.Model):
 
     dt_family_access_ids = fields.One2many("dt.family.access", "owner_user_id", string="Cấu hình gia đình")
     dt_family_viewer_access_ids = fields.One2many("dt.family.access", "viewer_user_id", string="Quyền được xem")
+    # Whether money amounts show as real numbers or masked ("******") across the
+    # expense app. Used to live in a cookie that expired after 30 minutes and reset
+    # on every new device/browser - moved here so the choice sticks permanently and
+    # follows the account everywhere, not the browser.
+    dt_balance_visible = fields.Boolean(string="Hiện số tiền", default=False)
 
     def _has_admin_rights(self):
         self.ensure_one()
