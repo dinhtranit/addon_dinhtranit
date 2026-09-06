@@ -91,6 +91,14 @@
     flex: 0 0 auto;
 }
 
+/* .dt-eye-toggle itself is styled in dt_expense_portal.scss (it already had a rule
+   there from before, since this button currently only ever renders on dt_expense
+   pages) - kept to one definition instead of two competing ones. This form wrapper
+   just needs to not add extra width/height to the topbar's flex row. */
+.dt-eye-toggle-form {
+    display: inline-flex;
+}
+
 .dt-profile-card__avatar,
 .dt-member-mini img,
 .dt-readonly-line img {
@@ -206,6 +214,16 @@
     background: #fffefa;
     color: var(--dt-muted);
     border: 1px solid var(--dt-line);
+}
+
+/* Outline version of the primary button: white fill, orange border+text - for actions
+   that are meaningful but shouldn't compete visually with the page's main CTA (e.g.
+   "Điều chỉnh số dư" sitting next to a wallet row). Stack with .dt-btn--ghost so it
+   only overrides colour, not layout/sizing. */
+.dt-btn--ghost-primary {
+    background: #fff;
+    color: var(--dt-primary);
+    border-color: var(--dt-primary);
 }
 
 .dt-inline-actions,
@@ -520,4 +538,197 @@
     padding: 6px 12px;
     color: var(--dt-muted);
     font-weight: 800;
+}
+
+
+/* ---- Shared spinner (save button + media upload overlay) ------------------- */
+.dt-btn-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    vertical-align: -3px;
+    /* currentColor, not a hardcoded white: the same spinner has to be legible on the
+       solid primary button (white text), on the outlined delete button (red text on a
+       near-white surface, where a white spinner was invisible) and on the dark upload
+       overlay. Taking the button's own text colour covers all three. */
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    opacity: .85;
+    border-radius: 50%;
+    animation: dt-btn-spin .6s linear infinite;
+}
+
+@keyframes dt-btn-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ---- Upload state on each picked photo ------------------------------------ */
+/* Photos start uploading the moment they are picked, so every tile has to say where
+   it is: still going, done, or failed and retryable. */
+.dt-media-tile__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px;
+    border: 0;
+    background: rgba(40, 28, 18, .55);
+    color: #fff;
+    font-weight: 800;
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.3;
+}
+
+.dt-media-tile__overlay .dt-btn-spinner {
+    margin-right: 0;
+    vertical-align: baseline;
+}
+
+.dt-media-tile__overlay--error {
+    background: rgba(160, 52, 34, .82);
+    cursor: pointer;
+}
+
+.dt-media-tile--new.is-uploading img {
+    filter: saturate(.5);
+}
+
+
+/* ---- Remove a wrongly picked file ------------------------------------------ */
+.dt-media-tile__remove {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 3;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(40, 28, 18, .62);
+    color: #fff;
+    font-size: 13px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.dt-media-tile__remove:hover {
+    background: #b14b3a;
+}
+
+/* ---- Full-screen image viewer ---------------------------------------------- */
+.dt-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(24, 17, 11, .93);
+}
+
+.dt-lightbox.d-none {
+    display: none !important;
+}
+
+.dt-lightbox__stage {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    /* The browser must not claim the gestures - pinch and drag are handled here. */
+    touch-action: none;
+    cursor: zoom-in;
+}
+
+.dt-lightbox__stage.is-zoomed {
+    cursor: grab;
+}
+
+.dt-lightbox__img {
+    max-width: 100%;
+    max-height: 100%;
+    transform-origin: center center;
+    transition: transform .12s ease-out;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.dt-lightbox__close,
+.dt-lightbox__nav {
+    position: absolute;
+    z-index: 2;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .14);
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.dt-lightbox__close:hover,
+.dt-lightbox__nav:hover {
+    background: rgba(255, 255, 255, .26);
+}
+
+.dt-lightbox__close {
+    top: calc(14px + env(safe-area-inset-top));
+    right: 14px;
+}
+
+.dt-lightbox__nav--prev { left: 12px; top: 50%; transform: translateY(-50%); }
+.dt-lightbox__nav--next { right: 12px; top: 50%; transform: translateY(-50%); }
+.dt-lightbox__nav[hidden] { display: none; }
+
+.dt-lightbox__dots {
+    position: absolute;
+    bottom: calc(46px + env(safe-area-inset-bottom));
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.dt-lightbox__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .35);
+}
+
+.dt-lightbox__dot.is-active {
+    background: #fff;
+}
+
+.dt-lightbox__hint {
+    position: absolute;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: rgba(255, 255, 255, .55);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Images that open the viewer should say so. */
+[data-lightbox-group="1"] img {
+    cursor: zoom-in;
 }

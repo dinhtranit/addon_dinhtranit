@@ -11,8 +11,12 @@
                         <div t-if="page_subtitle" class="dt-page-subtitle"><t t-esc="page_subtitle"/></div>
                     </div>
                     <div class="dt-topbar__actions">
-                        <button t-if="show_balance_toggle" type="button" class="dt-eye-toggle" data-balance-toggle="1" t-att-aria-label="'Ẩn số tiền' if balance_visible else 'Hiện số tiền'" t-att-title="'Ẩn số tiền' if balance_visible else 'Hiện số tiền'"><t t-if="balance_visible">🙈</t><t t-else="">👁</t></button>
-                        <a t-if="page_action_url" t-att-href="page_action_url" class="dt-round-btn dt-round-btn--green" aria-label="Thêm mới">+</a>
+                        <form t-if="show_balance_toggle" action="/my/family/balance-toggle" method="post" class="dt-eye-toggle-form">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="return_to" t-att-value="request.httprequest.full_path"/>
+                            <button type="submit" class="dt-eye-toggle" t-att-aria-label="'Ẩn số tiền' if balance_visible else 'Hiện số tiền'" t-att-title="'Ẩn số tiền' if balance_visible else 'Hiện số tiền'"><i t-attf-class="fa #{'fa-eye' if balance_visible else 'fa-eye-slash'}"/></button>
+                        </form>
+                        <a t-if="page_action_url" t-att-href="page_action_url" t-attf-class="dt-round-btn #{page_action_class or 'dt-round-btn--green'}" t-att-aria-label="page_action_label or 'Thêm mới'" t-att-title="page_action_label or 'Thêm mới'"><i t-if="page_action_icon" t-attf-class="fa #{page_action_icon}"/><t t-else="">+</t></a>
                     </div>
                 </header>
                 <main class="dt-main-content"><t t-out="0"/></main>

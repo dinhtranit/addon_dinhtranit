@@ -111,7 +111,10 @@ publicWidget.registry.DTMoneyInput = publicWidget.Widget.extend({
             return;
         }
         const len = (this.el.value || '').length;
-        const size = len <= 7 ? 58 : len <= 10 ? 44 : len <= 12 ? 36 : 30;
+        // Base size matches the redesigned amount panel (42px, was 58px) - the rest of
+        // the shrink ladder scales down with it so long numbers still keep shrinking
+        // in the same proportions rather than jumping to a size bigger than the base.
+        const size = len <= 7 ? 42 : len <= 10 ? 34 : len <= 12 ? 28 : 24;
         this.el.style.fontSize = size + 'px';
     },
 

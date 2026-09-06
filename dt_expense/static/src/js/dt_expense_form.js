@@ -17,20 +17,36 @@ function nextMonth(value) {
     return `${year}-${String(month + 1).padStart(2, "0")}-01`;
 }
 
-function renderSuggestionList(listEl, rows, onPick, forceShow) {
+function renderSuggestionList(listEl, rows, onPick, forceShow, inputEl) {
     listEl.innerHTML = "";
     rows.forEach((row) => {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "dt-autocomplete-item";
-        button.textContent = row.label;
+        const label = document.createElement("span");
+        label.className = "dt-autocomplete-item__label";
+        label.textContent = row.label;
+        button.appendChild(label);
+        // Suggestions learned from past entries carry the amount last used for that
+        // description, so the user can see it before picking.
+        if (row.amount) {
+            const hint = document.createElement("span");
+            hint.className = "dt-autocomplete-item__amount";
+            hint.textContent = row.amount;
+            button.appendChild(hint);
+        }
         button.addEventListener("click", (event) => {
             event.preventDefault();
-            onPick(row.label);
+            onPick(row.label, row);
         });
         listEl.appendChild(button);
     });
-    listEl.classList.toggle("d-none", rows.length === 0 && !forceShow);
+    // Never pop the list open on its own - only while the field it belongs to is
+    // actually focused. Without this, a suggestion fetch triggered by picking a
+    // category (or by re-rendering state on page load) could reveal the dropdown
+    // even though the user has not tapped into the field to type anything.
+    const hasFocus = !inputEl || document.activeElement === inputEl;
+    listEl.classList.toggle("d-none", !hasFocus || (rows.length === 0 && !forceShow));
 }
 
 function hideListOnBlur(listEl) {
@@ -57,6 +73,7 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         'input [data-category-search="1"]': '_onCategorySearch',
         'change [data-expense-date="1"]': '_onDateChange',
         'input input[name="amount"]': '_updateSavePreview',
+        'submit': '_onFormSubmit',
     },
 
     start() {
@@ -79,7 +96,122 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         this._updateState();
         this._rebuildQuickRow();
         this._updateSavePreview();
+        this._submitting = false;
+        this._pendingUploads = 0;
+        this._submitQueued = false;
+        this.saveButton = this.el.querySelector('.dt-save-bar button[type="submit"]');
+        if (this.saveButton) {
+            // Snapshot the markup, not the rendered amount: the preview span is filled in
+            // later, and restoring a stale copy would both wipe the amount and detach the
+            // live [data-save-amount-preview] node.
+            this._saveButtonDefaultHtml = this.saveButton.innerHTML;
+        }
+        this._onPageShow = (ev) => {
+            if (!ev.persisted) { return; }
+            this._resetSubmitState();
+            // Media staged before the previous save now belongs to that entry.
+            this._pendingUploads = 0;
+            this._submitQueued = false;
+            this.el.dispatchEvent(new CustomEvent('dt-uploads-reset', { bubbles: true }));
+        };
+        window.addEventListener('pageshow', this._onPageShow);
+        this._onUploadsChanged = (ev) => this._onUploadsProgress(ev);
+        this.el.addEventListener('dt-uploads-changed', this._onUploadsChanged);
         return this._super(...arguments);
+    },
+
+    destroy() {
+        if (this._onPageShow) { window.removeEventListener('pageshow', this._onPageShow); }
+        if (this._onUploadsChanged) { this.el.removeEventListener('dt-uploads-changed', this._onUploadsChanged); }
+        if (this._submitTimer) { window.clearTimeout(this._submitTimer); }
+        return this._super(...arguments);
+    },
+
+    // Deferred so the browser has already captured the submitter before it goes
+    // disabled — disabling it in the same tick can abort the submission outright.
+    _lockSaveButton(html) {
+        if (!this.saveButton) { return; }
+        this.saveButton.classList.add('is-loading');
+        this.saveButton.innerHTML = html;
+        window.setTimeout(() => {
+            if (this._submitting && this.saveButton) { this.saveButton.disabled = true; }
+        }, 0);
+    },
+
+    _resetSubmitState() {
+        this._submitting = false;
+        if (this._submitTimer) { window.clearTimeout(this._submitTimer); this._submitTimer = null; }
+        if (this.saveButton) {
+            this.saveButton.disabled = false;
+            this.saveButton.classList.remove('is-loading');
+            this.saveButton.innerHTML = this._saveButtonDefaultHtml;
+            // innerHTML replaced the preview node, so re-acquire it and redraw the amount
+            // — otherwise the button would be stuck showing the amount as of page load.
+            this.savePreview = this.el.querySelector('[data-save-amount-preview="1"]');
+            this._updateSavePreview();
+        }
+    },
+
+    // Safety net: a successful save navigates away, so this only ever fires when the
+    // request failed or stalled. Without it the button would stay locked for good and
+    // the entry could not be saved at all.
+    _onSubmitStalled() {
+        this._resetSubmitState();
+        if (!this.saveButton || !this.saveButton.parentElement) { return; }
+        const bar = this.saveButton.parentElement;
+        let note = bar.querySelector('[data-save-stalled-note="1"]');
+        if (!note) {
+            note = document.createElement('div');
+            note.className = 'dt-save-stalled-note';
+            note.dataset.saveStalledNote = '1';
+            bar.appendChild(note);
+        }
+        note.textContent = 'Lưu lâu bất thường. Hãy kiểm tra Lịch sử giao dịch trước khi bấm lại, tránh tạo trùng.';
+    },
+
+    _onUploadsProgress(ev) {
+        const detail = (ev && ev.detail) || {};
+        this._pendingUploads = detail.pending || 0;
+        if (this._pendingUploads > 0) {
+            if (this.saveButton && this._submitQueued) {
+                const done = (detail.total || 0) - this._pendingUploads;
+                this.saveButton.innerHTML =
+                    `<span class="dt-btn-spinner"></span> Đang tải ảnh (${done}/${detail.total || 0})...`;
+            }
+            return;
+        }
+        // Last upload finished. If the user already pressed save, go now.
+        if (this._submitQueued) {
+            this._submitQueued = false;
+            this._submitting = false;
+            this.el.requestSubmit ? this.el.requestSubmit() : this.el.submit();
+        }
+    },
+
+    // Guard against double-submit: tapping "Thêm giao dịch" more than once while the
+    // request (often with an image upload) is still in flight used to create several
+    // duplicate transactions. Lock the button and show a processing state on first
+    // submit; a successful save navigates the browser away, so no reset is needed there
+    // — only bfcache back-navigation (pageshow) restores the button.
+    _onFormSubmit(ev) {
+        if (this._submitting) {
+            ev.preventDefault();
+            return;
+        }
+        // Photos upload in the background from the moment they are picked. If one is
+        // still in flight, queue the save instead of blocking the user: it fires by
+        // itself as soon as the last upload lands.
+        if (this._pendingUploads > 0) {
+            ev.preventDefault();
+            this._submitQueued = true;
+            this._submitting = true;
+            this._lockSaveButton('<span class="dt-btn-spinner"></span> Đang tải ảnh...');
+            return;
+        }
+        this._submitting = true;
+        this._lockSaveButton('<span class="dt-btn-spinner"></span> Đang lưu...');
+        if (this._submitTimer) { window.clearTimeout(this._submitTimer); }
+        this._submitTimer = window.setTimeout(() => this._onSubmitStalled(), 25000);
     },
 
     _snapshotOriginalQuickRow() {
@@ -339,6 +471,7 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
         if (!fromModal && entryType && this.entryTypeInput) {
             this.entryTypeInput.value = entryType;
             this.el.querySelectorAll('[data-entry-tab]').forEach((tab) => tab.classList.toggle('is-active', tab.dataset.entryTab === entryType));
+            this.el.classList.toggle('dt-is-income', entryType === 'income');
         }
 
         // Parent with children tapped from quick row → open modal filtered to this group
@@ -353,14 +486,31 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
             this.el.querySelectorAll('[data-category-id]').forEach((chip) => chip.classList.toggle('is-active', chip.dataset.categoryId === categoryId));
         }
         if (fromModal) { this._hideAllCategories(); }
+        // Picked from the expanded "show more" panel — collapse it, the choice is made.
+        if (this.parentListPanel && button.closest('[data-parent-list="1"]')) {
+            this.parentListPanel.classList.add('d-none');
+            if (this.parentListToggle) { this.parentListToggle.setAttribute('aria-expanded', 'false'); }
+        }
         this._onCategoryChange();
     },
 
     _updateState() {
         const currentType = (this.entryTypeInput && this.entryTypeInput.value) || 'expense';
+        // Income gets its own accent (green instead of orange) across the active
+        // segment, the amount figure and the Luu button - all of them read the
+        // colour from a CSS variable that this class overrides in one place.
+        this.el.classList.toggle('dt-is-income', currentType === 'income');
         const isAdjustment = currentType === 'adjustment';
+        // plan_fund has no category either (its own "Loai quy" field plays the role
+        // adjustment_direction plays for "adjustment") - server already renders it
+        // hidden, but this handler runs on every load/tab-change and used to strip that
+        // hidden attribute right back off for any type other than "adjustment",
+        // including plan_fund. Same bug also left the hidden category <select> marked
+        // required for plan_fund, which silently blocked the Luu button (HTML5
+        // validation on an empty required field) - not just a cosmetic leftover.
+        const hideCategoryFields = isAdjustment || currentType === 'plan_fund';
         this.categoryFields.forEach((field) => {
-            if (isAdjustment) { field.setAttribute('hidden', 'hidden'); }
+            if (hideCategoryFields) { field.setAttribute('hidden', 'hidden'); }
             else { field.removeAttribute('hidden'); }
         });
         if (this.adjustmentField) {
@@ -368,22 +518,48 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
             else { this.adjustmentField.setAttribute('hidden', 'hidden'); }
         }
         if (this.categorySelect) {
-            this.categorySelect.required = !isAdjustment;
+            this.categorySelect.required = !hideCategoryFields;
             Array.from(this.categorySelect.options).forEach((option) => {
                 if (!option.value) { option.hidden = false; return; }
                 const visible = option.dataset.entryType === currentType;
                 option.hidden = !visible;
                 if (!visible && option.selected) { option.selected = false; }
             });
-            if (isAdjustment) { this.categorySelect.value = ''; }
+            if (hideCategoryFields) { this.categorySelect.value = ''; }
         }
         this.el.querySelectorAll('[data-cat-item="1"]').forEach((chip) => {
             chip.classList.toggle('is-active', this.categorySelect && chip.dataset.categoryId === this.categorySelect.value);
         });
         if (this.parentListPanel) {
+            // "Nothing more to show" means every leaf in the expanded panel for this
+            // type is already sitting in the quick row above it - not merely that the
+            // panel has zero items. Compare against the quick row's own snapshot
+            // (not the live DOM, which _rebuildQuickRow() below has not refreshed yet
+            // for a type that was just switched to) rather than counting visible items.
+            const quickIds = new Set((this.originalChipsByType[currentType] || []).map((c) => c.dataset.categoryId));
+            let anyExtraVisible = false;
             this.parentListPanel.querySelectorAll('[data-category-id]').forEach((btn) => {
-                btn.hidden = btn.dataset.entryType !== currentType;
+                const visible = btn.dataset.entryType === currentType;
+                btn.hidden = !visible;
+                if (visible && !quickIds.has(btn.dataset.categoryId)) { anyExtraVisible = true; }
             });
+            // The lone "Xem them" chip looks broken sitting by itself when there is
+            // nothing new below it to reveal - hide it along with the rest for this type.
+            const moreBtn = this.parentListPanel.querySelector('.dt-quick-cat--more');
+            if (moreBtn) { moreBtn.hidden = !anyExtraVisible; }
+            // Expanding into a panel that only repeats the quick row above it is
+            // pointless (and looked like a bug: a whole second identical row, no "more"
+            // button, no reason it was ever shown). Hide the toggle chevron itself so
+            // there is nothing to expand into, and collapse the panel if it happens to
+            // already be open - e.g. switching tabs from "Chi tieu" (expanded) to
+            // "Thu nhap" (nothing extra) used to leave the duplicate row showing.
+            if (this.parentListToggle) {
+                this.parentListToggle.hidden = !anyExtraVisible;
+                if (!anyExtraVisible) {
+                    this.parentListPanel.classList.add('d-none');
+                    this.parentListToggle.setAttribute('aria-expanded', 'false');
+                }
+            }
         }
         this._rebuildQuickRow();
         this._onDateChange();
@@ -434,10 +610,17 @@ publicWidget.registry.DTExpenseForm = publicWidget.Widget.extend({
             if (!response.ok) { throw new Error('network'); }
             const rows = await response.json();
             if (requestId !== this._suggestionRequest) { return; }
-            renderSuggestionList(this.titleList, rows, (label) => {
+            renderSuggestionList(this.titleList, rows, (label, row) => {
                 this.titleInput.value = label;
+                // Prefill the amount from the last time this description was used. Only
+                // when the field is still empty, so we never overwrite what the user typed.
+                const amountInput = this.el.querySelector('input[name="amount"]');
+                if (amountInput && row && row.amount && !(amountInput.value || '').trim()) {
+                    amountInput.value = row.amount;
+                    amountInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
                 this.titleList.classList.add('d-none');
-            }, forceShow);
+            }, forceShow, this.titleInput);
         } catch (_e) {
             this.titleList.innerHTML = '';
             this.titleList.classList.add('d-none');
@@ -484,7 +667,7 @@ publicWidget.registry.DTDebtForm = publicWidget.Widget.extend({
             renderSuggestionList(this.counterpartyList, rows, (label) => {
                 this.counterpartyInput.value = label;
                 this.counterpartyList.classList.add('d-none');
-            }, forceShow);
+            }, forceShow, this.counterpartyInput);
         } catch (_e) {
             this.counterpartyList.innerHTML = '';
             this.counterpartyList.classList.add('d-none');

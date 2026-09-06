@@ -1,9 +1,10 @@
 .dt-expense-page {
     display: grid;
-    gap: 22px;
+    gap: 14px;
 }
 
 .dt-expense-page:has(.dt-save-bar) { padding-bottom: 160px; }
+.dt-expense-page:has(.dt-detail-actions) { padding-bottom: 100px; }
 
 .dt-cat-modal { position: fixed; inset: 0; z-index: 1000; }
 .dt-cat-modal.d-none { display: none; }
@@ -16,18 +17,18 @@
 .dt-cat-search { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #fff; border-radius: 999px; border: 1px solid var(--dt-line); }
 .dt-cat-search input { border: 0; background: transparent; outline: none; width: 100%; font-size: 16px; }
 .dt-cat-create { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #fff; border: 1px solid var(--dt-line); border-radius: 999px; font-weight: 800; color: var(--dt-text); white-space: nowrap; text-decoration: none; }
-.dt-cat-modal__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 6px 14px 24px; }
+.dt-cat-modal__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 6px 10px 20px; }
 .dt-cat-filter-bar { display: flex; align-items: center; gap: 8px; padding: 8px 18px 10px; background: rgba(224,123,31,.08); border-bottom: 1px solid rgba(0,0,0,.06); }
 .dt-cat-filter-bar__label { flex: 1; font-size: 13px; font-weight: 700; color: #e07b1f; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dt-cat-filter-bar__label::before { content: 'Đang xem: '; font-weight: 400; opacity: .7; }
 .dt-cat-filter-bar__clear { flex: 0 0 auto; background: transparent; border: 1.5px solid #e07b1f; color: #e07b1f; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .dt-cat-filter-bar.d-none { display: none; }
 .dt-cat-group { background: #fff; border-radius: 18px; overflow: hidden; margin-bottom: 12px; }
-.dt-cat-group__head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--dt-accent-soft); width: 100%; border: 0; text-align: left; cursor: default; }
+.dt-cat-group__head { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--dt-accent-soft); width: 100%; border: 0; text-align: left; cursor: default; }
 .dt-cat-group__head--selectable { cursor: pointer; transition: filter .15s; -webkit-tap-highlight-color: transparent; }
 .dt-cat-group__head--selectable:active { filter: brightness(.93); }
 .dt-cat-group__head--selectable.is-active { background: #ffe0b2; }
-.dt-cat-group__select-hint { margin-left: auto; font-size: 12px; font-weight: 700; opacity: .5; flex-shrink: 0; }
+.dt-cat-group__select-hint { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--dt-primary-dark); opacity: .6; flex-shrink: 0; }
 .dt-cat-group__head--selectable .dt-cat-group__select-hint { opacity: .65; }
 .dt-cat-group__name { font-size: 16px; font-weight: 900; color: var(--dt-primary-dark); }
 .dt-cat-group--income .dt-cat-group__head { background: var(--dt-green-soft); }
@@ -35,16 +36,17 @@
 .dt-cat-group--income .dt-cat-group__name { color: #2f9a52; }
 .dt-cat-group__icon { font-size: 20px; }
 .dt-cat-group__icon img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; vertical-align: middle; }
-.dt-cat-group__tiles { display: flex; flex-wrap: wrap; padding: 12px 8px; }
-.dt-cat-tile { width: 25%; display: flex; flex-direction: column; align-items: center; gap: 6px; background: transparent; border: 0; padding: 10px 4px; color: var(--dt-text); cursor: pointer; }
+.dt-cat-group__tiles { display: flex; flex-wrap: wrap; padding: 8px 4px; }
+.dt-cat-tile { width: 20%; display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent; border: 0; padding: 8px 2px; color: var(--dt-text); cursor: pointer; }
 .dt-cat-tile__icon { font-size: 30px; line-height: 1; }
 .dt-cat-tile__icon img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
 .dt-cat-tile__name { font-size: 13px; font-weight: 700; text-align: center; word-break: break-word; }
-.dt-cat-tile.is-active { background: #ffe8ec; border-radius: 14px; }
+.dt-cat-tile.is-active { background: var(--dt-active-soft, var(--dt-accent-soft)); border-radius: 14px; }
 .dt-cat-tile--parent .dt-cat-tile__name { font-style: italic; color: var(--dt-muted); }
 .dt-cat-tile--parent .dt-cat-tile__icon { opacity: .75; }
 .dt-cat-tile--parent.is-active .dt-cat-tile__name { color: inherit; }
-@media (max-width: 480px) { .dt-cat-tile { width: 33.3333%; } }
+/* Kept at 5 columns (20%) on small screens too, per request - narrower padding
+   above does the work of fitting more tiles instead of dropping to fewer columns. */
 .dt-cat-modal[data-active-type="expense"] .dt-cat-tile[data-entry-type="income"],
 .dt-cat-modal[data-active-type="income"] .dt-cat-tile[data-entry-type="expense"] { display: none !important; }
 
@@ -127,6 +129,19 @@
 .dt-round-btn--green {
     background: var(--dt-primary);
     color: #fff;
+}
+
+/* Icon-only header action (e.g. duplicate on the detail screen): the round button's
+   30px type is sized for a "+" glyph, far too big for a Font Awesome icon. */
+.dt-round-btn--soft {
+    background: #fffefa;
+    border: 1px solid var(--dt-line);
+    color: var(--dt-primary-dark);
+}
+
+.dt-round-btn .fa {
+    font-size: 18px;
+    line-height: 1;
 }
 
 .dt-balance-big {
@@ -463,7 +478,7 @@
     border: 0;
     width: 100%;
     text-align: center;
-    font-size: 58px;
+    font-size: 42px;
     line-height: 1;
     font-family: -apple-system, 'Roboto', sans-serif;
     font-weight: 900;
@@ -478,7 +493,7 @@
 
 .dt-quick-cats__row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px;
     background: white;
     padding: 10px 6px;
@@ -512,13 +527,19 @@
 
 .dt-quick-cats__all {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 4px;
     background: white;
     padding: 10px 6px;
     border-radius: 20px;
-    max-height: 360px;
+    /* ~4 rows of leaf categories stay visible; the rest (and "Xem thêm") scroll. */
+    max-height: 340px;
     overflow-y: auto;
+}
+
+.dt-quick-cat--more > span {
+    font-size: 20px;
+    color: var(--dt-muted);
 }
 
 .dt-quick-cat {
@@ -527,7 +548,7 @@
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    padding: 10px 4px;
+    padding: 10px 2px;
     border: 0;
     background: transparent;
     color: var(--dt-text);
@@ -537,19 +558,19 @@
 }
 
 .dt-quick-cat > span {
-    font-size: 28px;
+    font-size: 24px;
     line-height: 1;
 }
 
 .dt-quick-cat > span img {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     object-fit: cover;
 }
 
 .dt-quick-cat > small {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     text-align: center;
     width: 100%;
@@ -560,7 +581,10 @@
 }
 
 .dt-quick-cat.is-active {
-    background: #ffe8ec;
+    /* Soft accent that follows the active tab's colour instead of a fixed pink that
+       had nothing to do with either theme. Falls back to the orange-soft token;
+       .dt-is-income overrides --dt-active-soft to the green-soft one below. */
+    background: var(--dt-active-soft, var(--dt-accent-soft));
 }
 
 .dt-hidden-select {
@@ -572,7 +596,8 @@
     background: #fff;
     border-radius: 28px;
     overflow: hidden;
-    border: 1px solid var(--dt-line);
+    padding: 10px 0;
+    box-shadow: 0 10px 26px rgba(92, 67, 39, .05);
 }
 
 .dt-line-field {
@@ -580,28 +605,53 @@
     grid-template-columns: 155px 1fr;
     gap: 14px;
     align-items: center;
-    padding: 16px 18px;
-    border-bottom: 1px solid var(--dt-line);
-}
-
-.dt-line-field:last-child {
-    border-bottom: 0;
+    padding: 10px 16px;
 }
 
 .dt-line-field > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     color: var(--dt-muted);
-    font-size: 17px;
-    font-weight: 900;
+    font-size: 14px;
+    font-weight: 700;
 }
 
 .dt-line-field input,
 .dt-line-field select,
 .dt-line-field textarea {
-    text-align: right;
+    /* Editable fields read left-to-right (easier to type/scan while entering data).
+       The read-only detail screen still right-aligns its values, but that comes from
+       ".dt-readonly-line strong { justify-content: flex-end }" - a different
+       mechanism (those rows render <strong> text, not <input>), so it is untouched
+       by this rule. */
+    text-align: left;
     padding: 0;
     border-radius: 0;
     background: transparent;
     font-size: 16px;
+}
+
+/* Select/date carry a native icon on the right that browsers reserve space for,
+   pushing their text left of where a plain input's text lands - the two column
+   types were not lining up. Custom chevron replaces the native arrow so the select's
+   reserved space matches every other field's, and the date icon is trimmed to its
+   own box instead of adding extra margin on top of that space. */
+.dt-line-field > select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235e534a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 2px center;
+    background-size: 13px;
+}
+
+.dt-line-field > input[type="date"]::-webkit-calendar-picker-indicator {
+    margin: 0;
+    padding: 0;
+    opacity: .55;
+    cursor: pointer;
 }
 
 .dt-readonly-line strong {
@@ -658,10 +708,17 @@
 }
 
 @media (min-width: 760px) {
+    /* Centering via left:50%+transform used to work fine here because .dt-save-bar
+       never contains a nested position:fixed descendant. Switched to left:0/right:0/
+       margin:auto anyway (same visual result, zero risk) after the identical pattern
+       on .dt-detail-actions turned out to silently break the confirm dialog nested
+       inside it - see the note above .dt-detail-actions below. Any transform other
+       than none on an ancestor makes it the containing block for position:fixed
+       descendants, which is exactly what was happening there. */
     .dt-save-bar {
-        left: 50%;
-        right: auto;
-        transform: translateX(-50%);
+        left: 0;
+        right: 0;
+        margin: 0 auto;
         width: calc(100vw - 32px);
         max-width: 590px;
     }
@@ -674,6 +731,14 @@
     background: var(--dt-primary);
 }
 
+.dt-save-bar .dt-btn:disabled,
+.dt-save-bar .dt-btn.is-loading {
+    opacity: .7;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+
 .dt-category-card__head,
 .dt-history-row,
 .dt-report-detail-row {
@@ -684,7 +749,51 @@
     min-width: 0;
 }
 
-.dt-eye-toggle { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: 0 0 auto; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .78); font-size: 19px; line-height: 1; cursor: pointer; }
+/* Same footprint as the round "+" button next to it (.dt-round-btn, 54x54) so the
+   two line up visually in the topbar. Background is the app's existing soft-peach
+   token (already used for quick-cat chips, category group headers, etc.) rather than
+   white/near-white like the back button - distinct from the topbar's own cream
+   background, but a muted tone from the same family, not a loud new colour. */
+.dt-eye-toggle { display: inline-flex; align-items: center; justify-content: center; width: 54px; height: 54px; flex: 0 0 auto; border-radius: 50%; border: 0; background: var(--dt-accent-soft); color: var(--dt-primary-dark); font-size: 20px; line-height: 1; cursor: pointer; }
+
+/* ---- Wallet card: icon-only "primary" badge, tighter title, bigger coloured amount ---- */
+/* Icon was sharing .dt-category-icon's 58px/26px sizing meant for category chips - too
+   big sitting inline with a wallet's name. Scoped smaller just in this card instead of
+   touching the shared rule (which is also used for category lists, history rows...). */
+.dt-wallet-card__main > .dt-category-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    flex: 0 0 auto;
+}
+
+/* "★ Chính" text pill replaced with an icon-only badge - same idea, far less visual
+   weight next to the wallet name. */
+.dt-wallet-primary-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--dt-accent-soft);
+    color: var(--dt-primary);
+    font-size: 11px;
+    flex: 0 0 auto;
+    vertical-align: middle;
+}
+
+/* .dt-wallet-card h2 had no font-size of its own, only the shared card-title rule
+   (weight/colour, no size) - so it fell back to the browser's native <h2> size, much
+   bigger than this dense a row calls for. */
+.dt-wallet-card__info h2 {
+    font-size: 19px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dt-wallet-card__main { align-items: center; }
 
 .dt-wallet-card { position: relative; display: flex; flex-direction: column; gap: 10px; }
 .dt-wallet-card__main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; min-width: 0; }
@@ -746,9 +855,16 @@
     gap: 6px;
 }
 
-.dt-wallet-card__right strong,
 .dt-history-amount {
     font-size: 20px;
+    font-weight: 900;
+}
+
+/* Bigger and coloured like the amount in a transaction (green/orange via
+   .dt-amount-positive/.dt-amount-negative, applied in the template based on sign) -
+   was sharing .dt-history-amount's compact 20px/no-colour styling before. */
+.dt-wallet-card__right strong {
+    font-size: 26px;
     font-weight: 900;
 }
 
@@ -1126,4 +1242,352 @@ a.dt-report-detail-row:hover, a.dt-report-line:hover { background: rgba(182, 85,
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+
+/* ---- Detail screen: amount ------------------------------------------------- */
+/* The detail screen renders the amount as text where the entry form renders it in an
+   input, so it does not inherit that input's type scale. Match it deliberately, and
+   only here - the wallet balance panel shares this component and keeps its own size. */
+.dt-amount-panel--lg > strong {
+    max-width: 100%;
+    text-align: center;
+    font-size: 42px;
+    line-height: 1;
+    font-family: -apple-system, 'Roboto', sans-serif;
+    font-weight: 900;
+    word-break: break-word;
+    /* Exactly the orange the amount field uses on the entry form, so the number reads
+       the same on both screens. Covers the leading sign as well, since it sits inside. */
+    color: var(--dt-primary);
+}
+
+/* Income keeps its green: the colour is how you tell money in from money out at a
+   glance, and that is worth more here than matching the form. */
+.dt-amount-panel--lg > strong.dt-amount-positive {
+    color: #5e8b55;
+}
+
+/* ".dt-amount-panel span" exists to style the "SO TIEN" label, but it also caught the
+   spans the amount itself is built from - so the digits rendered in muted grey no
+   matter what colour sat on their <strong>. Let them inherit it instead. */
+.dt-amount-panel > strong span {
+    color: inherit;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+/* ...except the currency tag, which is meant to recede. */
+.dt-amount-panel > strong .dt-amount-unit {
+    color: var(--dt-muted);
+}
+
+/* A delete action should read as destructive rather than as disabled text; muted grey
+   on cream was too faint to see. Colour comes from a variable (with the original red
+   as fallback) so the income/expense theme override further down can recolour it
+   along with everything else instead of leaving it stuck orange-red. */
+.dt-detail-actions__form .dt-btn--ghost,
+.dt-detail-actions__form .dt-btn--ghost .fa {
+    color: var(--dt-danger, #b14b3a);
+}
+
+.dt-detail-actions__form .dt-btn--ghost {
+    border-color: var(--dt-danger-border, #e8b4a8);
+}
+
+/* The panel keeps its original centred layout; only the text is split so that the
+   sign and the currency tag stay out of a selection — dragging across the amount
+   copies just the digits. */
+.dt-amount-affix {
+    font-size: .5em;
+    vertical-align: middle;
+}
+
+.dt-amount-affix,
+.dt-amount-unit {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.dt-amount-number {
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.dt-amount-unit {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 7px;
+    border-radius: 8px;
+    background: rgba(120, 96, 70, .10);
+    color: var(--dt-muted);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .04em;
+    vertical-align: middle;
+}
+
+/* ---- Detail screen: action bar --------------------------------------------- */
+/* Pinned to the bottom, same as the entry form's Luu bar, so Sua/Xoa stay reachable
+   without scrolling. This does make the bar a stacking context again (any positioned
+   element with a z-index is one) - but this time it sits at level 70, the same as
+   .dt-save-bar and well above the topbar's 40, so the confirm dialog nested inside
+   (z-index 1200) still paints above everything it needs to instead of getting capped
+   the way it was when the bar sat at level 2. */
+.dt-detail-actions {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 70;
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+}
+
+@media (min-width: 760px) {
+    /* BUG FIXED HERE: this used to be left:50%+transform:translateX(-50%), same as
+       .dt-save-bar. Unlike .dt-save-bar, this bar contains a nested .dt-confirm
+       dialog with its own position:fixed;inset:0 meant to cover the full viewport.
+       A `transform` other than `none` on ANY ancestor makes that ancestor the
+       containing block for position:fixed descendants (CSS spec, not a browser bug) -
+       so .dt-confirm's "inset:0" was resolving against THIS bar's small box (590x54px)
+       instead of the viewport, shrinking the whole confirm dialog down to the size of
+       the Sua/Xoa buttons and leaving them visible, undimmed, poking out underneath it.
+       Only showed up above the 760px breakpoint where this rule kicks in - narrower
+       screens use plain left/right/bottom with no transform, so testing on a phone-width
+       viewport never caught it. Fixed the same way as .dt-save-bar: centre with
+       left:0/right:0/margin:auto instead of a transform, so .dt-confirm keeps the
+       viewport as its containing block like it's supposed to. */
+    .dt-detail-actions {
+        left: 0;
+        right: 0;
+        margin: 0 auto;
+        width: calc(100vw - 32px);
+        max-width: 590px;
+    }
+}
+
+/* Both actions are exact halves. The link and the form must share the same flex
+   basis: ".dt-btn { flex: 1 1 auto; width: 100% }" is more specific than the rule
+   below, so the link resolved its basis to the full row width while the form
+   resolved to 0 - which is why "Sua" filled the bar and "Xoa" was pushed off the
+   edge. Scope the button rule to the form and pin an explicit zero basis here. */
+.dt-detail-actions > a.dt-btn,
+.dt-detail-actions > .dt-detail-actions__form {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+}
+
+.dt-detail-actions__form {
+    display: flex;
+}
+
+.dt-detail-actions__form .dt-btn {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+}
+
+.dt-detail-actions .dt-btn {
+    padding: 14px 10px;
+}
+
+/* ---- Confirmation dialog ---------------------------------------------------- */
+/* Small centred card in the same language as the panels on this screen: same
+   surface, same 28px radius, same border and shadow. */
+/* This dialog is not part of the transaction's own colour context - "Huy" here should
+   always read as the neutral/orange action regardless of whether the entry being
+   deleted is income or expense, so the variable is pinned back to the app's base
+   orange even when nested inside a .dt-is-income scope. */
+.dt-confirm {
+    --dt-primary: #b6553a;
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.dt-confirm.d-none {
+    display: none !important;
+}
+
+.dt-confirm__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(52, 38, 24, .45);
+    backdrop-filter: blur(2px);
+}
+
+.dt-confirm__card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 340px;
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    padding: 26px 22px 22px;
+    background: var(--dt-card-strong, #fffefa);
+    border: 1px solid var(--dt-line);
+    border-radius: 28px;
+    box-shadow: 0 24px 60px rgba(52, 38, 24, .28);
+}
+
+.dt-confirm__icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fbeae5;
+    color: #b14b3a;
+    font-size: 24px;
+}
+
+.dt-confirm__text {
+    margin: 0;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.4;
+    color: var(--dt-text);
+}
+
+.dt-confirm__actions {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.dt-confirm__actions .dt-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 13px 10px;
+    border-radius: 18px;
+}
+
+/* ---- Edit form: upload button lines up with the fields above --------------- */
+.dt-line-field > .dt-file-button--end {
+    justify-self: end;
+}
+
+/* ---- Smarter description suggestions --------------------------------------- */
+.dt-autocomplete-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+}
+
+.dt-autocomplete-item__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dt-autocomplete-item__amount {
+    flex: 0 0 auto;
+    color: var(--dt-muted);
+    font-size: 12px;
+    font-weight: 900;
+}
+
+/* Shown only when a save stalls, so the user is never left with a dead button. */
+.dt-save-stalled-note {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: #fbeae5;
+    border: 1px solid #e8b4a8;
+    color: #b14b3a;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.4;
+    text-align: center;
+}
+
+
+/* ---- Editable vs read-only ------------------------------------------------- */
+/* The entry form and the detail screen are deliberately the same layout, so the only
+   thing telling them apart is whether a row invites a tap. Editable rows sit flush
+   at rest (transparent border, same radius reserved so nothing shifts on focus) and
+   get a full coloured border with a soft radius once focused - not just an
+   underline, so the whole field reads as "you can type here". A uniform right
+   gutter (26px) is reserved on every field, not only the ones with a native icon,
+   so date/select values land on the same right edge as plain text instead of
+   sitting further left because their icon eats into the box. Read-only rows stay
+   flat and keep their value in the muted ink used for text you cannot change. */
+.dt-line-field > input:not([type="file"]),
+.dt-line-field > select,
+.dt-line-field > textarea {
+    padding: 6px 26px 6px 10px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--dt-text);
+    font-weight: 500;
+    transition: border-color .15s ease;
+}
+
+.dt-line-field > input:not([type="file"]):hover,
+.dt-line-field > select:hover,
+.dt-line-field > textarea:hover {
+    border-color: var(--dt-line);
+}
+
+.dt-line-field > input:not([type="file"]):focus,
+.dt-line-field > select:focus,
+.dt-line-field > textarea:focus {
+    outline: none;
+    border-color: var(--dt-primary);
+}
+
+/* Read-only rows on the detail screen: no field surface, muted value, weight to
+   match the editable side so the two screens read as one design. */
+.dt-readonly-line > strong {
+    font-weight: 500;
+    color: var(--dt-muted);
+}
+
+.dt-readonly-line {
+    cursor: default;
+}
+
+/* Icon gets its own coloured badge (circle) instead of floating loose next to the
+   label - the two read as one unit now instead of two unrelated pieces sitting side
+   by side. Colour comes from --dt-primary so it follows the income/expense theme
+   too. Spacing to the label text is handled by the flex "gap" on ".dt-line-field >
+   span" now, not a margin on the icon itself. */
+.dt-line-field > span .fa {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(120, 96, 70, .08);
+    color: var(--dt-primary);
+    font-size: 12px;
+}
+
+/* ---- Income context: only the amount itself turns green -------------------- */
+/* This scope used to override --dt-primary, which recoloured every button and tab
+   that reads from it (active segment, Luu, Sua, the active category chip) - not just
+   the amount. Feedback was that a whole green form felt inconsistent with the rest
+   of the (orange) app. Buttons/tabs now stay the normal orange regardless of entry
+   type; only the amount figure gets an explicit green, since that is the one place
+   colour still needs to say "money coming in" at a glance. The detail screen's
+   amount already gets this from ".dt-amount-positive" (a separate rule, independent
+   of --dt-primary) - only the entry FORM's live input needs it spelled out here. */
+.dt-is-income .dt-amount-panel input {
+    color: #5e8b55;
 }

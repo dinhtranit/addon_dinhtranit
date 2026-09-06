@@ -5,7 +5,6 @@
             <section class="dt-expense-page dt-expense-home pb-4">
 
                 <div class="dt-shortcut-panel">
-                    <a href="/my/apps/expenses/new" class="dt-shortcut"><span>✍️</span><strong>Nhập GD</strong></a>
                     <a href="/my/apps/expenses/history" class="dt-shortcut"><span>📊</span><strong>Biến động</strong></a>
                     <a href="/my/apps/expenses/debts" class="dt-shortcut"><span>🤝</span><strong>Sổ nợ</strong></a>
                     <a href="/my/apps/expenses/wallets" class="dt-shortcut"><span>💳</span><strong>Nguồn tiền</strong></a>
@@ -67,46 +66,52 @@
     <template id="portal_expense_form" name="Expense Form">
         <t t-call="dt_core.portal_shell">
             <section class="dt-expense-page">
-                <form action="/my/apps/expenses/save" method="post" enctype="multipart/form-data" class="dt-form-stack" data-expense-form="1">
+                <form action="/my/apps/expenses/save" method="post" enctype="multipart/form-data" t-attf-class="dt-form-stack #{'dt-is-income' if active_tab == 'income' else ''}" data-expense-form="1">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <input t-if="entry" type="hidden" name="entry_id" t-att-value="entry.id"/>
                     <input t-if="return_to" type="hidden" name="return_to" t-att-value="return_to"/>
                     <input type="hidden" name="entry_type" t-att-value="active_tab" data-entry-type-hidden="1"/>
 
-                    <div class="dt-segment" data-entry-tabbar="1">
+                    <div class="dt-segment" data-entry-tabbar="1" t-att-hidden="'hidden' if active_tab == 'plan_fund' else None">
                         <button type="button" t-attf-class="#{'is-active' if active_tab == 'expense' else ''}" data-entry-tab="expense">Chi tiêu</button>
                         <button type="button" t-attf-class="#{'is-active' if active_tab == 'income' else ''}" data-entry-tab="income">Thu nhập</button>
                         <!-- <button type="button" t-attf-class="#{'is-active' if active_tab == 'adjustment' else ''}" data-entry-tab="adjustment">Điều chỉnh</button> -->
                     </div>
 
-                    <div class="dt-quick-cats" data-category-field="1" t-att-hidden="'hidden' if active_tab == 'adjustment' else None">
+                    <div class="dt-quick-cats" data-category-field="1" t-att-hidden="'hidden' if active_tab in ('adjustment', 'plan_fund') else None">
                         <div class="dt-quick-cats__head">
                             <div class="dt-block-title">Danh mục</div>
                             <button type="button" class="dt-quick-cats__toggle" data-toggle-parent-list="1" aria-expanded="false" aria-label="Xem tất cả danh mục cha">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                             </button>
                         </div>
+                        <!-- Default view: top parent categories, 5 per row x 2 rows.
+                             Tapping one opens the category modal filtered to that group. -->
                         <div class="dt-quick-cats__row">
                             <t t-foreach="quick_categories" t-as="cat">
-                                <button type="button" t-attf-class="dt-quick-cat #{'is-active' if entry and entry.category_id and (entry.category_id.id == cat.id or entry.category_id.parent_id.id == cat.id) else ''}" t-att-data-category-id="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" t-att-data-has-children="'1' if quick_has_children.get(cat.id) else '0'" t-att-hidden="'hidden' if cat.category_type != active_tab else None">
+                                <button type="button" t-attf-class="dt-quick-cat #{'is-active' if prefill and prefill.category_id and (prefill.category_id.id == cat.id or prefill.category_id.parent_id.id == cat.id) else ''}" t-att-data-category-id="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" t-att-data-has-children="'1' if quick_has_children.get(cat.id) else '0'" t-att-hidden="'hidden' if cat.category_type != active_tab else None">
                                     <span><t t-esc="cat.icon or '💸'"/></span><small><t t-esc="cat.name"/></small>
                                 </button>
                             </t>
-                            <button type="button" class="dt-quick-cat" data-show-all-categories="1"><span>+</span><small>Thêm</small></button>
                         </div>
+                        <!-- Expanded view: most-used LEAF categories, 5 per row x 4 rows.
+                             These are already leaves, so tapping one selects it straight away
+                             instead of opening the modal. "Xem thêm" at the end opens the full
+                             modal (what the old "+ Thêm" chip used to do). -->
                         <div class="dt-quick-cats__all d-none" data-parent-list="1">
-                            <t t-foreach="parent_categories" t-as="cat">
-                                <button type="button" t-attf-class="dt-quick-cat #{'is-active' if entry and entry.category_id and (entry.category_id.id == cat.id or entry.category_id.parent_id.id == cat.id) else ''}" t-att-data-category-id="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" t-att-data-has-children="'1' if quick_has_children.get(cat.id) else '0'" data-cat-item="1" t-att-hidden="'hidden' if cat.category_type != active_tab else None">
-                                    <span><t t-esc="cat.icon or '💸'"/></span><small><t t-esc="cat.name"/></small>
+                            <t t-foreach="top_child_categories" t-as="cat">
+                                <button type="button" t-attf-class="dt-quick-cat #{'is-active' if prefill and prefill.category_id and prefill.category_id.id == cat.id else ''}" t-att-data-category-id="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" data-has-children="0" data-cat-item="1" t-att-hidden="'hidden' if cat.category_type != active_tab else None">
+                                    <span><img t-if="cat.image" t-attf-src="/web/image/dt.expense.category/#{cat.id}/image"/><t t-else=""><t t-esc="cat.icon or (cat.parent_id.icon if cat.parent_id else '💸') or '💸'"/></t></span><small><t t-esc="cat.name"/></small>
                                 </button>
                             </t>
+                            <button type="button" class="dt-quick-cat dt-quick-cat--more" data-show-all-categories="1"><span><i class="fa fa-ellipsis-h"/></span><small>Xem thêm</small></button>
                         </div>
                     </div>
 
                     <select name="category_id" class="dt-hidden-select" data-category-select="1" data-category-field="1">
                         <option value="">Chọn danh mục</option>
                         <t t-foreach="categories" t-as="cat">
-                            <option t-att-value="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" t-att-selected="'selected' if entry and entry.category_id and entry.category_id.id == cat.id else None"><t t-esc="cat.icon or '💸'"/> <t t-esc="cat.name"/></option>
+                            <option t-att-value="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" t-att-selected="'selected' if prefill and prefill.category_id and prefill.category_id.id == cat.id else None"><t t-esc="cat.icon or '💸'"/> <t t-esc="cat.name"/></option>
                         </t>
                     </select>
 
@@ -128,11 +133,11 @@
                             <div class="dt-cat-modal__body">
                                 <t t-foreach="grouped_cats" t-as="group">
                                     <div t-attf-class="dt-cat-group dt-cat-group--#{(group['parent'].category_type if group['parent'] else group.get('other_type')) or 'mixed'}" data-cat-group="1" t-att-data-cat-group-type="group['parent'].category_type if group['parent'] else group.get('other_type')" t-att-data-cat-name="group['parent'].name if group['parent'] else 'Khác'" t-att-data-parent-id="group['parent'].id if group['parent'] else False">
-                                        <button t-if="group['parent']" type="button" t-attf-class="dt-cat-group__head dt-cat-group__head--selectable #{'is-active' if entry and entry.category_id.id == group['parent'].id else ''}" t-att-data-category-id="group['parent'].id" t-att-data-entry-type="group['parent'].category_type" t-att-data-next-month-rule="'1' if group['parent'].apply_next_month_rule else '0'" data-cat-item="1" t-att-data-cat-name="group['parent'].name"><span class="dt-cat-group__icon"><img t-if="group['parent'].image" t-attf-src="/web/image/dt.expense.category/#{group['parent'].id}/image"/><t t-else=""><t t-esc="group['parent'].icon or '🗂️'"/></t></span><span class="dt-cat-group__name"><t t-esc="group['parent'].name"/></span><span class="dt-cat-group__select-hint">Chọn →</span></button>
+                                        <button t-if="group['parent']" type="button" t-attf-class="dt-cat-group__head dt-cat-group__head--selectable #{'is-active' if prefill and prefill.category_id.id == group['parent'].id else ''}" t-att-data-category-id="group['parent'].id" t-att-data-entry-type="group['parent'].category_type" t-att-data-next-month-rule="'1' if group['parent'].apply_next_month_rule else '0'" data-cat-item="1" t-att-data-cat-name="group['parent'].name"><span class="dt-cat-group__icon"><img t-if="group['parent'].image" t-attf-src="/web/image/dt.expense.category/#{group['parent'].id}/image"/><t t-else=""><t t-esc="group['parent'].icon or '🗂️'"/></t></span><span class="dt-cat-group__name"><t t-esc="group['parent'].name"/></span><span class="dt-cat-group__select-hint">Chọn →</span></button>
                                         <div t-else="" class="dt-cat-group__head"><span class="dt-cat-group__icon">🗂️</span><span class="dt-cat-group__name">Khác</span></div>
                                         <div t-if="group['children']" class="dt-cat-group__tiles">
                                             <t t-foreach="group['children']" t-as="cat">
-                                                <button type="button" t-attf-class="dt-cat-tile #{'dt-cat-tile--parent' if not group['parent'] else ''} #{'is-active' if entry and entry.category_id.id == cat.id else ''}" t-att-data-category-id="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" data-cat-item="1" t-att-data-cat-name="cat.name">
+                                                <button type="button" t-attf-class="dt-cat-tile #{'dt-cat-tile--parent' if not group['parent'] else ''} #{'is-active' if prefill and prefill.category_id.id == cat.id else ''}" t-att-data-category-id="cat.id" t-att-data-entry-type="cat.category_type" t-att-data-next-month-rule="'1' if cat.apply_next_month_rule else '0'" data-cat-item="1" t-att-data-cat-name="cat.name">
                                                     <span class="dt-cat-tile__icon"><img t-if="cat.image" t-attf-src="/web/image/dt.expense.category/#{cat.id}/image"/><t t-else=""><t t-esc="cat.icon or '💸'"/></t></span>
                                                     <span class="dt-cat-tile__name"><t t-esc="cat.name"/></span>
                                                 </button>
@@ -151,12 +156,12 @@
 
                     <div class="dt-info-panel">
                         <label class="dt-line-field">
-                            <span>✏️ Mô tả</span>
-                            <input type="text" name="name" t-att-value="entry.name if entry else ''" placeholder="Ví dụ: Đi siêu thị Coopmart" data-title-input="1" autocomplete="off"/>
+                            <span><i class="fa fa-pencil"/> Mô tả</span>
+                            <input type="text" name="name" t-att-value="prefill.name if prefill else ''" placeholder="Ví dụ: Đi siêu thị Coopmart" data-title-input="1" autocomplete="off"/>
                             <div class="dt-autocomplete-list d-none" data-title-suggestion-list="1"></div>
                         </label>
                         <label class="dt-line-field">
-                            <span>📅 Ngày</span>
+                            <span><i class="fa fa-calendar-o"/> Ngày</span>
                             <input type="date" name="expense_date" t-att-value="default_date" data-expense-date="1"/>
                         </label>
                         <label class="dt-line-field d-none">
@@ -164,7 +169,7 @@
                             <input type="date" name="accounting_month" t-att-value="default_accounting_month" data-accounting-month="1"/>
                         </label>
                         <label class="dt-line-field" t-if="len(wallets) > 1">
-                            <span>💳 Nguồn tiền</span>
+                            <span><i class="fa fa-credit-card"/> Nguồn tiền</span>
                             <select name="wallet_id">
                                 <t t-foreach="wallets" t-as="wallet">
                                     <option t-att-value="wallet.id" t-att-selected="'selected' if default_wallet and default_wallet.id == wallet.id else None"><t t-esc="wallet.icon or '💳'"/> <t t-esc="wallet.name"/></option>
@@ -173,7 +178,7 @@
                         </label>
                         <input t-else="" type="hidden" name="wallet_id" t-att-value="default_wallet.id if default_wallet else False"/>
                         <label class="dt-line-field" t-if="plans">
-                            <span>🎯 Kế hoạch</span>
+                            <span><i class="fa fa-bullseye"/> Kế hoạch</span>
                             <select name="plan_id">
                                 <option value="">Không gắn kế hoạch</option>
                                 <t t-foreach="plans" t-as="p">
@@ -182,25 +187,32 @@
                             </select>
                         </label>
                         <div class="dt-line-field" data-adjustment-only="1" t-att-hidden="None if active_tab == 'adjustment' else 'hidden'">
-                            <span>↔️ Điều chỉnh</span>
+                            <span><i class="fa fa-exchange"/> Điều chỉnh</span>
                             <div class="dt-radio-line">
-                                <label><input type="radio" name="adjustment_direction" value="increase" t-att-checked="'checked' if not entry or entry.adjustment_direction == 'increase' else None"/> Tăng</label>
-                                <label><input type="radio" name="adjustment_direction" value="decrease" t-att-checked="'checked' if entry and entry.adjustment_direction == 'decrease' else None"/> Giảm</label>
+                                <label><input type="radio" name="adjustment_direction" value="increase" t-att-checked="'checked' if not prefill or prefill.adjustment_direction == 'increase' else None"/> Tăng</label>
+                                <label><input type="radio" name="adjustment_direction" value="decrease" t-att-checked="'checked' if prefill and prefill.adjustment_direction == 'decrease' else None"/> Giảm</label>
+                            </div>
+                        </div>
+                        <div class="dt-line-field" t-att-hidden="None if active_tab == 'plan_fund' else 'hidden'">
+                            <span><i class="fa fa-exchange"/> Loại quỹ</span>
+                            <div class="dt-radio-line">
+                                <label><input type="radio" name="plan_flow" value="fund_in" t-att-checked="'checked' if not prefill or prefill.plan_flow != 'fund_out' else None"/> Ứng vào quỹ</label>
+                                <label><input type="radio" name="plan_flow" value="fund_out" t-att-checked="'checked' if prefill and prefill.plan_flow == 'fund_out' else None"/> Rút quỹ</label>
                             </div>
                         </div>
                         <label class="dt-line-field">
-                            <span>📝 Ghi chú</span>
-                            <textarea name="note" rows="2" placeholder="Thêm ghi chú nếu cần"><t t-esc="entry.note if entry else ''"/></textarea>
+                            <span><i class="fa fa-sticky-note-o"/> Ghi chú</span>
+                            <textarea name="note" rows="2" placeholder="Thêm ghi chú nếu cần"><t t-esc="prefill.note if prefill else ''"/></textarea>
                         </label>
                         <label class="dt-line-field">
-                            <span>🧾 Ảnh</span>
-                            <input class="dt-file-input" type="file" name="media_files" accept="image/*,video/*" multiple="multiple" data-file-input="1"/><span class="dt-file-button">Tải file</span>
+                            <span><i class="fa fa-picture-o"/> Ảnh</span>
+                            <input class="dt-file-input" type="file" name="media_files" accept="image/*,video/*" multiple="multiple" data-file-input="1" data-upload-model="dt.expense.entry"/><span class="dt-file-button dt-file-button--end"><i class="fa fa-upload"/> Tải file</span>
                         </label>
                     </div>
 
-                    <div class="dt-media-grid d-none" data-file-preview="1"></div>
+                    <div class="dt-media-grid d-none" data-file-preview="1" data-lightbox-group="1"></div>
 
-                    <div class="dt-media-grid" t-if="media_items">
+                    <div class="dt-media-grid" t-if="media_items" data-lightbox-group="1">
                         <t t-foreach="media_items" t-as="media">
                             <div class="dt-media-tile">
                                 <img t-if="media.media_type == 'image'" t-att-src="media.image_url()"/>
@@ -210,13 +222,8 @@
                     </div>
 
                     <div class="dt-save-bar">
-                        <button type="submit" class="dt-btn dt-btn--primary"> <t t-esc="'Lưu giao dịch' if entry else 'Thêm giao dịch'"/> · <span data-save-amount-preview="1"></span></button>
+                        <button type="submit" class="dt-btn dt-btn--primary">Lưu</button>
                     </div>
-                </form>
-                <form t-if="entry" t-attf-action="/my/apps/expenses/#{entry.id}/delete" method="post" class="dt-delete-form" onsubmit="return confirm('Xóa giao dịch này?');">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <input t-if="return_to" type="hidden" name="return_to" t-att-value="return_to"/>
-                    <button type="submit" class="dt-btn dt-btn--danger-ghost">🗑 Xóa giao dịch</button>
                 </form>
             </section>
         </t>
@@ -224,26 +231,45 @@
 
     <template id="portal_expense_view" name="Expense View">
         <t t-call="dt_core.portal_shell">
-            <section class="dt-expense-page">
+            <section t-attf-class="dt-expense-page #{'dt-is-income' if entry.entry_type == 'income' else ''}">
                 <div class="dt-panel dt-form-stack">
-                    <div class="dt-amount-panel"><span>Số tiền</span><strong t-attf-class="#{entry.amount_css_class}"><t t-esc="entry.amount_label"/></strong></div>
-                    <div class="dt-info-panel">
-                        <div class="dt-line-field dt-readonly-line"><span>✏️ Mô tả</span><strong><t t-esc="entry.name"/></strong></div>
-                        <div class="dt-line-field dt-readonly-line"><span>🗂️ Danh mục</span><strong><t t-esc="entry.category_id.display_name if entry.category_id else (entry.get_debt_flow_label() if entry.entry_type == 'debt' else (entry.get_plan_flow_label() if entry.entry_type == 'plan_fund' else (entry.get_transfer_flow_label() if entry.entry_type == 'transfer' else entry.get_entry_type_label())))"/></strong></div>
-                        <div class="dt-line-field dt-readonly-line" t-if="entry.plan_id"><span>🎯 Kế hoạch</span><strong><t t-esc="entry.plan_id.name"/></strong></div>
-                        <div class="dt-line-field dt-readonly-line"><span>📅 Ngày</span><strong><t t-esc="entry.expense_date.strftime('%d/%m/%Y') if entry.expense_date else ''"/></strong></div>
-                        <div class="dt-line-field dt-readonly-line"><span>👤 Người chi</span><strong><img t-attf-src="/web/image/res.partner/#{entry.user_id.partner_id.id}/avatar_128"/> <t t-esc="entry.user_id.name"/></strong></div>
-                        <div class="dt-line-field dt-readonly-line"><span>💳 Nguồn tiền</span><strong><t t-esc="entry.wallet_id.display_name if entry.wallet_id else ''"/></strong></div>
-                        <div class="dt-line-field dt-readonly-line" t-if="entry.note"><span>📝 Ghi chú</span><strong><t t-esc="entry.note"/></strong></div>
+                    <t t-set="amount_parts" t-value="entry.get_amount_parts()"/>
+                    <div class="dt-amount-panel dt-amount-panel--lg">
+                        <span>Số tiền</span>
+                        <strong t-attf-class="#{entry.amount_css_class}"><span class="dt-amount-affix" t-if="amount_parts['sign']"><t t-esc="amount_parts['sign']"/></span><span class="dt-amount-number"><t t-esc="amount_parts['number']"/></span><span class="dt-amount-unit">VNĐ</span></strong>
                     </div>
-                    <div class="dt-media-grid dt-media-grid--large" t-if="media_items">
+                    <div class="dt-info-panel">
+                        <div class="dt-line-field dt-readonly-line"><span><i class="fa fa-pencil"/> Mô tả</span><strong><t t-esc="entry.name"/></strong></div>
+                        <div class="dt-line-field dt-readonly-line"><span><i class="fa fa-folder-open-o"/> Danh mục</span><strong><t t-esc="entry.category_id.display_name if entry.category_id else (entry.get_debt_flow_label() if entry.entry_type == 'debt' else (entry.get_plan_flow_label() if entry.entry_type == 'plan_fund' else (entry.get_transfer_flow_label() if entry.entry_type == 'transfer' else entry.get_entry_type_label())))"/></strong></div>
+                        <div class="dt-line-field dt-readonly-line" t-if="entry.plan_id"><span><i class="fa fa-bullseye"/> Kế hoạch</span><strong><t t-esc="entry.plan_id.name"/></strong></div>
+                        <div class="dt-line-field dt-readonly-line"><span><i class="fa fa-calendar-o"/> Ngày</span><strong><t t-esc="entry.expense_date.strftime('%d/%m/%Y') if entry.expense_date else ''"/></strong></div>
+                        <div class="dt-line-field dt-readonly-line"><span><i class="fa fa-user-o"/> Người chi</span><strong><img t-attf-src="/web/image/res.partner/#{entry.user_id.partner_id.id}/avatar_128"/> <t t-esc="entry.user_id.name"/></strong></div>
+                        <div class="dt-line-field dt-readonly-line"><span><i class="fa fa-credit-card"/> Nguồn tiền</span><strong><t t-esc="entry.wallet_id.display_name if entry.wallet_id else ''"/></strong></div>
+                        <div class="dt-line-field dt-readonly-line" t-if="entry.note"><span><i class="fa fa-sticky-note-o"/> Ghi chú</span><strong><t t-esc="entry.note"/></strong></div>
+                    </div>
+                    <div class="dt-media-grid dt-media-grid--large" t-if="media_items" data-lightbox-group="1">
                         <t t-foreach="media_items" t-as="media">
                             <div class="dt-media-tile"><img t-if="media.media_type == 'image'" t-att-src="media.image_url()"/><video t-if="media.media_type == 'video'" t-att-src="media.stream_url()" controls="controls" preload="metadata"></video></div>
                         </t>
                     </div>
-                    <div class="dt-inline-actions" t-if="can_edit or can_delete">
-                        <a t-if="can_edit" t-att-href="'/my/apps/expenses/%s/edit?return_to=%s' % (entry.id, edit_return or '')" class="dt-btn dt-btn--primary">Sửa</a>
-                        <form t-if="can_delete" t-att-action="'/my/apps/expenses/%s/delete' % entry.id" method="post" onsubmit="return confirm('Xóa giao dịch này?');"><input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/><input t-if="edit_return" type="hidden" name="return_to" t-att-value="back_url"/><button type="submit" class="dt-btn dt-btn--ghost">Xóa</button></form>
+                    <div class="dt-detail-actions" t-if="can_edit or can_delete">
+                        <a t-if="can_edit" t-att-href="'/my/apps/expenses/%s/edit?return_to=%s' % (entry.id, edit_return or '')" class="dt-btn dt-btn--primary"><i class="fa fa-pencil"/> Sửa</a>
+                        <form t-if="can_delete" t-att-action="'/my/apps/expenses/%s/delete' % entry.id" method="post" class="dt-detail-actions__form" data-confirm-form="1">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input t-if="edit_return" type="hidden" name="return_to" t-att-value="back_url"/>
+                            <button type="button" class="dt-btn dt-btn--ghost" data-confirm-open="1"><i class="fa fa-trash-o"/> Xóa</button>
+                            <div class="dt-confirm d-none" data-confirm-dialog="1" role="dialog" aria-modal="true">
+                                <div class="dt-confirm__backdrop" data-confirm-cancel="1"></div>
+                                <div class="dt-confirm__card">
+                                    <div class="dt-confirm__icon"><i class="fa fa-trash-o"/></div>
+                                    <p class="dt-confirm__text">Bạn chắc muốn xoá giao dịch này?</p>
+                                    <div class="dt-confirm__actions">
+                                        <button type="button" class="dt-btn dt-btn--primary" data-confirm-cancel="1">Huỷ</button>
+                                        <button type="button" class="dt-btn dt-btn--danger-ghost" data-confirm-submit="1">Xoá</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                     <div class="dt-empty-state" t-if="not can_edit and not can_delete and scope == 'family'">Chế độ xem gia đình chỉ đọc.</div>
                 </div>
@@ -335,11 +361,11 @@
                             <a class="dt-history-rowlink" t-att-href="'/my/apps/expenses/wallets/%s' % wallet.id" aria-label="Chi tiết nguồn tiền"></a>
                             <div class="dt-wallet-card__main">
                                 <span class="dt-category-icon"><t t-esc="wallet.icon or '💳'"/></span>
-                                <div class="dt-wallet-card__info"><h2><t t-esc="wallet.name"/> <span t-if="wallet.is_primary" class="dt-owner-pill">★ Chính</span></h2><p><t t-esc="wallet.entry_count"/> giao dịch</p></div>
-                                <div class="dt-wallet-card__right"><strong><t t-esc="wallet.balance_label if balance_visible else '••••••'"/></strong></div>
+                                <div class="dt-wallet-card__info"><h2><t t-esc="wallet.name"/> <span t-if="wallet.is_primary" class="dt-wallet-primary-badge" aria-label="Ví chính" title="Ví chính"><i class="fa fa-star"/></span></h2><p><t t-esc="wallet.entry_count"/> giao dịch</p></div>
+                                <div class="dt-wallet-card__right"><strong t-attf-class="#{'dt-amount-negative' if wallet.balance &lt; 0 else 'dt-amount-positive'}"><t t-esc="wallet.balance_label if balance_visible else '••••••'"/></strong></div>
                             </div>
                             <div class="dt-wallet-card__actions">
-                                <button type="button" class="dt-btn dt-btn--primary dt-btn--sm" t-attf-data-payment-toggle="wallet-#{wallet.id}">⚖️ Điều chỉnh số dư</button>
+                                <button type="button" class="dt-btn dt-btn--ghost dt-btn--ghost-primary dt-btn--sm" t-attf-data-payment-toggle="wallet-#{wallet.id}"><i class="fa fa-balance-scale"/> Điều chỉnh số dư</button>
                                 <div class="dt-debt-card__icon-group">
                                     <form t-att-action="'/my/apps/expenses/wallets/%s/set_primary' % wallet.id" method="post">
                                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
@@ -701,16 +727,8 @@
                     </p>
                 </div>
                 <div t-attf-class="dt-history-amount #{entry.amount_css_class}"><t t-esc="(entry.amount_label or '').rstrip('đ')"/></div>
-                <a t-if="is_own" t-att-href="'/my/apps/expenses/%s/edit?return_to=%s' % (entry.id, return_to_encoded or '')" class="dt-history-edit" aria-label="Sửa giao dịch" title="Sửa">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-                </a>
                 <form t-if="entry.entry_type == 'transfer' and entry.user_id.id == request.env.user.id" t-att-action="'/my/apps/expenses/wallets/transfer/%s/delete' % entry.id" method="post" onsubmit="return confirm('Xóa giao dịch chuyển tiền này (cả 2 chiều)?');">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <button type="submit" class="dt-history-edit" aria-label="Xóa" title="Xóa">🗑</button>
-                </form>
-                <form t-if="entry.entry_type == 'plan_fund' and entry.user_id.id == request.env.user.id" t-att-action="'/my/apps/expenses/%s/delete' % entry.id" method="post" onsubmit="return confirm('Xóa giao dịch quỹ kế hoạch này?');">
-                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                    <input type="hidden" name="return_to" t-att-value="return_to or ('/my/apps/expenses/history?scope=%s' % scope)"/>
                     <button type="submit" class="dt-history-edit" aria-label="Xóa" title="Xóa">🗑</button>
                 </form>
             </div>
