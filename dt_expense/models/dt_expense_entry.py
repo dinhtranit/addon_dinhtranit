@@ -272,6 +272,16 @@ class FamilyExpenseEntry(models.Model):
         self.ensure_one()
         if self.entry_type == "debt" and self.debt_flow == "borrow_in" and self.debt_id.plan_id:
             return 0.0
+        if self.entry_type == "plan_fund":
+            # "Ứng quỹ" / "Rút quỹ" only relabel money already sitting in the wallet as
+            # earmarked for a plan - no cash actually moves in or out at that moment
+            # (this is the rule the comment above already promised but never actually
+            # implemented for plan_fund itself). The real balance movement happens
+            # later, when that earmarked money is actually spent - an ordinary expense
+            # entry, which already reduces the balance on its own. Letting plan_fund
+            # entries ALSO move the balance was double-counting: "ứng quỹ" subtracted
+            # once, then the real expense subtracted again for the same money.
+            return 0.0
         return self.get_display_effect()
 
     def get_display_effect(self):
