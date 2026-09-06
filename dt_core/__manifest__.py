@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Family App Core",
-    "version": "19.0.2.0.0",
+    "version": "19.0.3.0.0",
     "summary": "Khung app chung cho bộ module Family",
     "category": "Website",
     "author": "Dinh Tran IT",
     "license": "LGPL-3",
     "depends": ["base", "mail", "portal", "website", "web"],
     "data": [
+        "security/dt_core_groups.xml",
         "security/ir.model.access.csv",
         "data/dt_core_data.xml",
         "views/dt_core_backend_views.xml",

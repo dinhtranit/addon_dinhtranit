@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Grants management rights over shared family data (e.g. shared expense
+         categories) regardless of who created the record - previously done by
+         hardcoding a specific email in code, which broke if the account ever
+         changed and was invisible from the permissions UI. Membership is granted
+         via a migration script (dt_core/migrations/19.0.3.0.0/), not XML data,
+         so it survives module updates cleanly and is visible/editable afterwards
+         from Settings > Users like any other group. -->
+    <record id="group_family_admin" model="res.groups">
+        <field name="name">Family Admin</field>
+        <field name="comment">Được quản lý toàn bộ dữ liệu dùng chung của gia đình (ví dụ: danh mục thu chi chung), không chỉ những gì tự mình tạo ra.</field>
+    </record>
+</odoo>

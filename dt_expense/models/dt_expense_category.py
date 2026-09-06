@@ -72,7 +72,11 @@ class FamilyExpenseCategory(models.Model):
     def can_manage(self, user=None):
         self.ensure_one()
         user = user or self.env.user
-        if self.user_id == user or user.has_group("base.group_system") or user.login == 'dinhtranit95@gmail.com':
+        # "Family Admin" replaces a hardcoded email check: same effective right
+        # (manage any shared category, not just ones you created), but as a real
+        # group visible/editable from Settings > Users instead of a string baked
+        # into code. See dt_core/migrations/19.0.3.0.0/ for how it gets granted.
+        if self.user_id == user or user.has_group("base.group_system") or user.has_group("dt_core.group_family_admin"):
             return True
         admin_user = self.env.ref("base.user_admin", raise_if_not_found=False)
         return bool(admin_user and self.user_id == admin_user)
